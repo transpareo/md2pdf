@@ -1,5 +1,6 @@
 require 'tmpdir'
 require 'shellwords'
+require 'fileutils'
 
 module Md2pdf
   module Runner
@@ -13,20 +14,22 @@ module Md2pdf
 
     module_function
 
-    def convert(md_path, flat:, unwrap_source:, toc: false, toc_depth: 2,
-                toc_label: nil)
+    def convert(md_path, flat:, unwrap:, toc: false, toc_depth: 2,
+                toc_label: nil, toc_min: TOC_MIN_H2,
+                output: nil, output_dir: nil, style: {})
       unless File.exist?(md_path)
         warn "Not found: #{md_path}"
         return
       end
 
       basename = File.basename(md_path, '.md')
-      pdf_dir = File.dirname(File.expand_path(md_path))
-      pdf_path = File.join(pdf_dir, "#{basename}.pdf")
+      pdf_dir = output_dir || File.dirname(File.expand_path(md_path))
+      pdf_path = output || File.join(pdf_dir, "#{basename}.pdf")
+      FileUtils.mkdir_p(File.dirname(pdf_path))
 
-      text = File.read(md_path)
-      text = Unwrap.call(text) if unwrap_source
-      toc &&= h2_count(text) >= TOC_MIN_H2
+      text = Config.strip_front_matter(File.read(md_path))
+      text = Unwrap.call(text) if unwrap
+      toc &&= h2_count(text) >= toc_min
 
       Dir.mktmpdir('md2pdf') do |tmpdir|
         md_tmp = File.join(tmpdir, 'doc.md')
@@ -34,7 +37,7 @@ module Md2pdf
         html_tmp = File.join(tmpdir, 'doc.html')
         pages_file = File.join(tmpdir, 'toc-pages.txt')
         File.write(md_tmp, text)
-        File.write(css_path, Style.build)
+        File.write(css_path, Style.build(**style))
         File.write(pages_file, '')
 
         pandoc_args = base_pandoc_args(

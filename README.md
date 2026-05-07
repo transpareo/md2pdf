@@ -30,15 +30,44 @@ Output PDFs are placed next to the input files.
 
 ## Options
 
-- `--flat` — Demote H2/H3 to bold paragraphs so the PDF has
-  only the H1 title as a heading.
-- `--unwrap` — Join hard-wrapped paragraph lines before
-  rendering. Off by default; pandoc handles soft-wrapped
-  paragraphs as a single paragraph already, and unwrap can
-  occasionally corrupt nested fenced code blocks.
+**Content**
+
+- `--flat` — Demote H2/H3 to bold paragraphs.
+- `--unwrap` — Join hard-wrapped paragraph lines.
 - `--no-toc` — Disable the table of contents.
 - `--toc-depth=N` — TOC depth. 1 = H2 only, 2 = H2 + H3
   (default), 3 = also H4.
+- `--toc-label=TEXT` — TOC heading text. Default `Contents`.
+- `--toc-min=N` — Min H2 count to auto-include TOC (default 3).
+
+**Typography**
+
+- `--font-size=Npt` — Body font size (default `11pt`).
+- `--line-height=N` — Body line-height (default `1.8`).
+- `--font-family="..."` — Body font stack.
+- `--code-font-family="..."` — Monospace stack for code.
+
+**Layout**
+
+- `--page-size=NAME` — `A4`, `Letter`, `A5`, `Legal`, …
+- `--margins="T R B L"` — Page margins (default
+  `"22mm 20mm 24mm 20mm"`).
+- `--output=FILE` — Output path.
+- `--output-dir=DIR` — Output directory.
+
+**Branding**
+
+- `--logo=PATH` — SVG logo. Header uses the original colors;
+  footer is **derived automatically** in grey from the same
+  file (no second logo needed).
+- `--no-header-logo` — Hide the first-page logo.
+- `--no-footer-logo` — Hide the per-page footer logo.
+- `--no-page-numbers` — Hide the page-number counter.
+
+**Style**
+
+- `--link-color=#hex` — Link color (default `#0a4a90`).
+- `--custom-css=FILE` — Append your own stylesheet rules.
 
 ## Title page
 
@@ -76,28 +105,70 @@ Roughly doubles render time. The TOC entry box reserves
 space for the largest plausible page number so layout is
 stable across passes.
 
-## Configuration
+## Configuration files
 
-Override defaults via env:
+Settings can come from three places. Precedence,
+highest first:
+
+1. **CLI flags** — single-doc, highest priority.
+2. **YAML front-matter** in the document itself — lives
+   under an `md2pdf:` key so it doesn't collide with
+   anything else:
+
+   ```markdown
+   ---
+   md2pdf:
+     font-size: 14pt
+     toc-label: Inhalt
+   ---
+
+   # My Document
+   ```
+
+   The whole `---…---` block is consumed by md2pdf and
+   stripped before pandoc renders the body, so it never
+   appears in the PDF.
+
+3. **`.md2pdf.yml`** — project defaults. md2pdf walks up
+   from the input file's directory until it finds one
+   (or hits `$HOME`):
+
+   ```yaml
+   font-size: 14pt
+   line-height: 1.6
+   page-size: A4
+   margins: "22mm 20mm 24mm 20mm"
+   toc-label: Contents
+   logo: /path/to/logo.svg
+   link-color: "#0a4a90"
+   ```
+
+YAML keys mirror the CLI flag names without the `--`
+prefix (`font-size`, `toc-label`, `no-page-numbers` →
+`page-numbers: false`, etc.).
+
+## Environment variables
 
     PANDOC=/usr/bin/pandoc
     CHROMIUM=/usr/bin/chromium
-    MD2PDF_LOGO=/path/to/footer-logo.svg
-    MD2PDF_LOGO_COLOR=/path/to/header-logo.svg
+    MD2PDF_LOGO=/path/to/logo.svg
 
-The header logo prints once on the first page; the footer
-logo prints on every page in monochrome. Both are optional.
+`MD2PDF_LOGO` is the fallback for `--logo`. The footer
+logo on every page is derived from the same file with
+all colors recoloured to grey; no second file needed.
 
 ## Layout
 
     bin/md2pdf                  CLI entrypoint
     lib/md2pdf.rb               module loader
     lib/md2pdf/cli.rb           argv parsing + dispatch
+    lib/md2pdf/config.rb        config-file + front-matter loader
     lib/md2pdf/runner.rb        pandoc + chromium pipeline
     lib/md2pdf/style.rb         CSS template loader
     lib/md2pdf/style.css.erb    print stylesheet
     lib/md2pdf/unwrap.rb        paragraph unwrap heuristic
     lib/md2pdf/demote.lua       pandoc filter for --flat
     lib/md2pdf/toc.lua          builds the TOC AST node
+    lib/md2pdf/title_page.lua   title-page wrap filter
     lib/md2pdf/probe.lua        invisible heading probes for
                                 two-pass page-number resolution
