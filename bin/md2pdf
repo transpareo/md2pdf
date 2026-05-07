@@ -1,0 +1,8 @@
+#!/usr/bin/env ruby
+# Convert markdown to PDF via pandoc -> HTML -> headless
+# Chromium. See README.md for details.
+
+$LOAD_PATH.unshift File.expand_path('../lib', __dir__)
+require 'md2pdf'
+
+Md2pdf::CLI.run(ARGV)

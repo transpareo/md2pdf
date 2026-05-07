@@ -1,0 +1,202 @@
+@page {
+  size: A4;
+  margin: 22mm 20mm 24mm 20mm;
+  @bottom-left {
+    <%- if footer_uri -%>
+    content: url('<%= footer_uri %>');
+    <%- end -%>
+    vertical-align: middle;
+  }
+  @bottom-right {
+    content: counter(page) " / " counter(pages);
+    font-family: 'Plus Jakarta Sans', 'DejaVu Sans',
+                 'Helvetica', sans-serif;
+    font-size: 9pt;
+    color: #666;
+    vertical-align: middle;
+  }
+}
+<%- if header_uri -%>
+@page :first {
+  margin-top: 38mm;
+  @top-center {
+    content: url('<%= header_uri %>');
+  }
+}
+<%- end -%>
+html { -webkit-print-color-adjust: exact; }
+.title-page {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: <%= header_uri ? '235mm' : '251mm' %>;
+  page-break-after: always;
+}
+.title-page > * {
+  flex: 0 0 auto;
+}
+body {
+  font-family: 'Plus Jakarta Sans', 'DejaVu Sans',
+               'Helvetica', sans-serif;
+  font-size: 11pt;
+  line-height: 1.8;
+  color: #1d1d1d;
+  max-width: none;
+  margin: 0;
+}
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Plus Jakarta Sans', 'DejaVu Sans',
+               'Helvetica', sans-serif;
+  line-height: 1.2;
+  page-break-after: avoid;
+}
+h1 {
+  font-size: 2.5em;
+  margin: 0 0 1em 0;
+  font-weight: 800;
+  text-align: center;
+  page-break-before: always;
+}
+h1:first-of-type { page-break-before: auto; }
+h1 + p,
+header .subtitle,
+header .title + p {
+  text-align: center;
+}
+h2 { font-size: 1.55em; margin: 2.4em 0 0.6em; }
+h3 { font-size: 1.3em; margin: 1.9em 0 0.4em; }
+p  { margin: 0.55em 0; }
+ul, ol { margin: 0.4em 0 0.6em 0; padding-left: 1.6em; }
+li { margin: 0.15em 0; }
+blockquote {
+  border-left: 3px solid #aaa;
+  margin: 0.8em 0;
+  padding: 0 0 0 0.9em;
+  color: #555;
+}
+code {
+  font-family: 'JetBrains Mono', 'DejaVu Sans Mono',
+               'Menlo', monospace;
+  font-size: 0.9em;
+  background: #f3f3f3;
+  padding: 0.05em 0.32em;
+  border-radius: 3px;
+}
+pre {
+  font-family: 'JetBrains Mono', 'DejaVu Sans Mono',
+               'Menlo', monospace;
+  font-size: 0.85em;
+  background: #f5f5f5;
+  padding: 0.7em 0.9em;
+  border-radius: 4px;
+  line-height: 1.4;
+  page-break-inside: avoid;
+  overflow: hidden;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+pre code {
+  background: transparent;
+  padding: 0;
+  font-size: 1em;
+}
+table {
+  border-collapse: collapse;
+  margin: 1em 0;
+  table-layout: auto;
+  width: 100%;
+  font-size: 0.9em;
+  page-break-inside: avoid;
+}
+th, td {
+  border: 1px solid #bbb;
+  padding: 0.45em 0.6em;
+  text-align: left;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+td code, th code {
+  word-break: break-all;
+  white-space: normal;
+}
+th {
+  background: #efefef;
+  font-weight: 700;
+}
+hr {
+  border: 0;
+  border-top: 1px solid #ccc;
+  margin: 1.4em 0;
+}
+.write-line {
+  border-bottom: 1px solid #444;
+  height: 1.7em;
+  margin: 0.2em 0 0.9em 0;
+  page-break-inside: avoid;
+}
+.page-break {
+  page-break-before: always;
+}
+.keep-together {
+  page-break-inside: avoid;
+}
+a { color: #0a4a90; text-decoration: none; }
+
+nav#TOC {
+  page-break-before: always;
+  page-break-after: always;
+}
+nav#TOC h2.toc-title {
+  margin: 0 0 1.2em 0;
+  page-break-before: auto;
+  page-break-after: avoid;
+}
+nav#TOC ul.toc-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+nav#TOC ul.toc-list li {
+  margin: 0.5em 0;
+  page-break-inside: avoid;
+}
+nav#TOC ul.toc-list li.toc-l3 {
+  padding-left: 1.5em;
+  font-size: 0.95em;
+  color: #555;
+  margin: 0.25em 0;
+}
+nav#TOC ul.toc-list a {
+  display: flex;
+  align-items: baseline;
+  text-decoration: none;
+  color: inherit;
+}
+nav#TOC ul.toc-list .toc-text {
+  flex: 0 1 auto;
+}
+nav#TOC ul.toc-list .toc-dots {
+  flex: 1 1 auto;
+  border-bottom: 1px dotted #999;
+  margin: 0 0.4em 0.35em;
+  height: 0;
+  align-self: flex-end;
+  min-width: 1em;
+}
+nav#TOC ul.toc-list .toc-page {
+  flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
+  color: #666;
+  white-space: nowrap;
+  min-width: 1.5em;
+  text-align: right;
+}
+
+.md2pdf-probe {
+  position: absolute;
+  font-size: 6pt;
+  color: rgba(0, 0, 0, 0.001);
+  user-select: none;
+  pointer-events: none;
+}
