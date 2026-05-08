@@ -22,6 +22,8 @@ module Md2pdf
         --toc-depth=N          TOC depth (1=H2, 2=H2+H3, 3=+H4).
         --toc-label=TEXT       TOC heading text. Default "Contents".
         --toc-min=N            Min H2s to auto-include TOC. Default 3.
+        --footnotes-label=TEXT Footnotes section heading text.
+                               Default "Footnotes". Pass "" for none.
 
       Typography:
         --font-size=Npt        Body font size. Default 11pt.
@@ -41,6 +43,9 @@ module Md2pdf
         --no-footer-logo       Hide footer logo.
         --no-page-numbers      Hide page numbers.
 
+      Misc:
+        --open                 Open each generated PDF with xdg-open.
+
       Style:
         --link-color=#hex      Link color. Default #0a4a90.
         --custom-css=FILE      Append custom CSS to the stylesheet.
@@ -58,13 +63,15 @@ module Md2pdf
       '--no-toc' => [:toc, false],
       '--no-header-logo' => [:header_logo, false],
       '--no-footer-logo' => [:footer_logo, false],
-      '--no-page-numbers' => [:page_numbers, false]
+      '--no-page-numbers' => [:page_numbers, false],
+      '--open' => :open
     }.freeze
 
     VALUE_FLAGS = {
       '--toc-depth' => :toc_depth_int,
       '--toc-label' => :toc_label,
       '--toc-min' => :toc_min_int,
+      '--footnotes-label' => :footnotes_label,
       '--font-size' => :font_size,
       '--line-height' => :line_height,
       '--font-family' => :font_family,
@@ -146,8 +153,10 @@ module Md2pdf
         toc_depth: cfg.fetch(:toc_depth, 2),
         toc_label: cfg[:toc_label],
         toc_min: cfg.fetch(:toc_min, 3),
+        footnotes_label: cfg.fetch(:footnotes_label, 'Footnotes'),
         output: cfg[:output],
         output_dir: cfg[:output_dir],
+        open: cfg.fetch(:open, false),
         style: style
       )
     end

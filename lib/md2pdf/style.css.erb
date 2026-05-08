@@ -199,6 +199,38 @@ nav#TOC ul.toc-list .toc-page {
   user-select: none;
   pointer-events: none;
 }
+
+sup.footnote-ref,
+.footnote-ref {
+  font-variant-numeric: tabular-nums;
+}
+sup.footnote-ref a,
+.footnote-ref a {
+  text-decoration: none;
+}
+.footnotes-title {
+  margin-top: 2.4em;
+}
+div.footnotes {
+  font-size: 0.9em;
+  color: #333;
+}
+div.footnotes ol {
+  padding-left: 1.6em;
+  margin: 0;
+}
+div.footnotes li {
+  margin: 0.5em 0;
+  page-break-inside: avoid;
+}
+div.footnotes li::marker {
+  color: #666;
+}
+div.footnotes a.footnote-back {
+  margin-left: 0.3em;
+  color: #888;
+  text-decoration: none;
+}
 <%- if custom_css -%>
 
 /* User custom CSS */

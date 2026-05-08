@@ -8,6 +8,7 @@ module Md2pdf
     # All keys are normalised to snake_case symbols.
     KEYS = %i[
       flat unwrap toc toc_depth toc_label toc_min
+      footnotes_label
       font_size line_height font_family code_font_family
       page_size margins
       output output_dir

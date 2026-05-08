@@ -8,6 +8,7 @@ module Md2pdf
     TOC_FILTER_PATH = File.expand_path('toc.lua', __dir__)
     PROBE_FILTER_PATH = File.expand_path('probe.lua', __dir__)
     TITLE_PAGE_FILTER_PATH = File.expand_path('title_page.lua', __dir__)
+    FOOTNOTES_FILTER_PATH = File.expand_path('footnotes.lua', __dir__)
 
     PROBE_RE = /\[\[md2pdf:([^\]]+)\]\]/
     TOC_MIN_H2 = 3
@@ -16,7 +17,9 @@ module Md2pdf
 
     def convert(md_path, flat:, unwrap:, toc: false, toc_depth: 2,
                 toc_label: nil, toc_min: TOC_MIN_H2,
-                output: nil, output_dir: nil, style: {})
+                footnotes_label: nil,
+                output: nil, output_dir: nil, open: false,
+                style: {})
       unless File.exist?(md_path)
         warn "Not found: #{md_path}"
         return
@@ -44,6 +47,7 @@ module Md2pdf
           md_tmp: md_tmp, css_path: css_path, html_tmp: html_tmp,
           basename: basename, flat: flat, toc: toc,
           toc_depth: toc_depth, toc_label: toc_label,
+          footnotes_label: footnotes_label,
           pages_file: pages_file
         )
 
@@ -64,12 +68,23 @@ module Md2pdf
 
         size = (File.size(pdf_path) / 1024.0).round(1)
         puts "#{pdf_path} (#{size} KB)"
+        open_pdf(pdf_path) if open
       end
+    end
+
+    def open_pdf(pdf_path)
+      pid = Process.spawn(
+        'xdg-open', pdf_path,
+        out: '/dev/null', err: '/dev/null'
+      )
+      Process.detach(pid)
+    rescue Errno::ENOENT
+      warn 'md2pdf: xdg-open not found; cannot --open the PDF'
     end
 
     def base_pandoc_args(md_tmp:, css_path:, html_tmp:, basename:,
                          flat:, toc:, toc_depth:, toc_label:,
-                         pages_file:)
+                         footnotes_label:, pages_file:)
       args = [
         PANDOC, md_tmp,
         '--from=gfm+fenced_divs',
@@ -82,9 +97,13 @@ module Md2pdf
       ]
       args += [
         '--lua-filter', TITLE_PAGE_FILTER_PATH,
+        '--lua-filter', FOOTNOTES_FILTER_PATH,
         '--metadata', "md2pdf-toc=#{toc}"
       ]
       args += ['--lua-filter', DEMOTE_FILTER_PATH] if flat
+      if footnotes_label
+        args += ['--metadata', "footnotes-title=#{footnotes_label}"]
+      end
       if toc
         args += [
           '--lua-filter', TOC_FILTER_PATH,

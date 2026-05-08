@@ -39,6 +39,10 @@ Output PDFs are placed next to the input files.
   (default), 3 = also H4.
 - `--toc-label=TEXT` — TOC heading text. Default `Contents`.
 - `--toc-min=N` — Min H2 count to auto-include TOC (default 3).
+- `--footnotes-label=TEXT` — Heading for the footnotes
+  section at the end of the document. Default `Footnotes`.
+  Pass an empty string (`--footnotes-label=""`) to render
+  the list without a heading.
 
 **Typography**
 
@@ -69,6 +73,11 @@ Output PDFs are placed next to the input files.
 - `--link-color=#hex` — Link color (default `#0a4a90`).
 - `--custom-css=FILE` — Append your own stylesheet rules.
 
+**Misc**
+
+- `--open` — Open each generated PDF with `xdg-open` after
+  rendering. Useful for quick previews.
+
 ## Title page
 
 The H1 + lead block is vertically centered on page 1
@@ -95,6 +104,38 @@ the following page.
 
 ## First Section
 ```
+
+## Footnotes
+
+Pandoc's footnote syntax is supported and used to render a
+list of sources at the end of the document.
+
+```markdown
+The first attempt failed.[^attempt]
+A later attempt succeeded.[^attempt]
+
+[^attempt]: Internal lab note, 2026-04-19.
+[^rfc]: IETF RFC 8785. https://rfc-editor.org/rfc/rfc8785.
+```
+
+Each `[^id]` reference becomes a numbered superscript link.
+All definitions are collected into a single `Footnotes`
+section appended to the document, with a backref arrow on
+every entry. References that share the same definition text
+are deduplicated to a single list item — useful when the
+same source is cited from multiple places.
+
+If the source markdown ends with a manual heading like
+`## Footnotes`, that heading is consumed automatically so
+it doesn't double up with the auto-rendered section.
+
+The section heading is configurable:
+
+- `--footnotes-label="Sources"` (CLI)
+- `footnotes-label: Quellen` (YAML front-matter or
+  `.md2pdf.yml`)
+- `--footnotes-label=""` to render the list without any
+  heading
 
 ## TOC rendering
 
@@ -168,6 +209,7 @@ all colors recoloured to grey; no second file needed.
     lib/md2pdf/style.css.erb    print stylesheet
     lib/md2pdf/unwrap.rb        paragraph unwrap heuristic
     lib/md2pdf/demote.lua       pandoc filter for --flat
+    lib/md2pdf/footnotes.lua    pandoc filter for footnotes
     lib/md2pdf/toc.lua          builds the TOC AST node
     lib/md2pdf/title_page.lua   title-page wrap filter
     lib/md2pdf/probe.lua        invisible heading probes for
