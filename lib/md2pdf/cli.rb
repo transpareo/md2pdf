@@ -22,6 +22,8 @@ module Md2pdf
         --toc-depth=N          TOC depth (1=H2, 2=H2+H3, 3=+H4).
         --toc-label=TEXT       TOC heading text. Default "Contents".
         --toc-min=N            Min H2s to auto-include TOC. Default 3.
+        --toc-min-words=N      Min word count to auto-include TOC.
+                               Default 1500.
         --footnotes-label=TEXT Footnotes section heading text.
                                Default "Footnotes". Pass "" for none.
 
@@ -71,6 +73,7 @@ module Md2pdf
       '--toc-depth' => :toc_depth_int,
       '--toc-label' => :toc_label,
       '--toc-min' => :toc_min_int,
+      '--toc-min-words' => :toc_min_words_int,
       '--footnotes-label' => :footnotes_label,
       '--font-size' => :font_size,
       '--line-height' => :line_height,
@@ -153,6 +156,7 @@ module Md2pdf
         toc_depth: cfg.fetch(:toc_depth, 2),
         toc_label: cfg[:toc_label],
         toc_min: cfg.fetch(:toc_min, 3),
+        toc_min_words: cfg.fetch(:toc_min_words, 1500),
         footnotes_label: cfg.fetch(:footnotes_label, 'Footnotes'),
         output: cfg[:output],
         output_dir: cfg[:output_dir],
@@ -168,6 +172,8 @@ module Md2pdf
         opts[:toc_depth] = val.to_i
       when :toc_min_int
         opts[:toc_min] = val.to_i
+      when :toc_min_words_int
+        opts[:toc_min_words] = val.to_i
       else
         opts[key] = val
       end

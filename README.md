@@ -23,8 +23,10 @@ the executable into a directory on your PATH:
 
 A table of contents (H2 + H3) is inserted by default on its
 own page, between the title page and the first H2, with
-resolved page numbers. Auto-skipped if the document has
-fewer than 3 H2 headings.
+resolved page numbers. Auto-skipped for short documents:
+both `--toc-min` (default 3 H2s) and `--toc-min-words`
+(default 1500 words) must be met. Tune either threshold to
+taste.
 
 Output PDFs are placed next to the input files.
 
@@ -39,6 +41,8 @@ Output PDFs are placed next to the input files.
   (default), 3 = also H4.
 - `--toc-label=TEXT` — TOC heading text. Default `Contents`.
 - `--toc-min=N` — Min H2 count to auto-include TOC (default 3).
+- `--toc-min-words=N` — Min word count to auto-include TOC
+  (default 1500). Both this and `--toc-min` must be met.
 - `--footnotes-label=TEXT` — Heading for the footnotes
   section at the end of the document. Default `Footnotes`.
   Pass an empty string (`--footnotes-label=""`) to render

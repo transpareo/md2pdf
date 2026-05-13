@@ -12,11 +12,13 @@ module Md2pdf
 
     PROBE_RE = /\[\[md2pdf:([^\]]+)\]\]/
     TOC_MIN_H2 = 3
+    TOC_MIN_WORDS = 1500
 
     module_function
 
     def convert(md_path, flat:, unwrap:, toc: false, toc_depth: 2,
                 toc_label: nil, toc_min: TOC_MIN_H2,
+                toc_min_words: TOC_MIN_WORDS,
                 footnotes_label: nil,
                 output: nil, output_dir: nil, open: false,
                 style: {})
@@ -32,7 +34,8 @@ module Md2pdf
 
       text = Config.strip_front_matter(File.read(md_path))
       text = Unwrap.call(text) if unwrap
-      toc &&= h2_count(text) >= toc_min
+      toc &&= h2_count(text) >= toc_min &&
+        word_count(text) >= toc_min_words
 
       Dir.mktmpdir('md2pdf') do |tmpdir|
         md_tmp = File.join(tmpdir, 'doc.md')
@@ -153,6 +156,10 @@ module Md2pdf
         count += 1 if line =~ /\A## /
       end
       count
+    end
+
+    def word_count(text)
+      text.scan(/[[:alpha:][:digit:]]+/).size
     end
 
     def extract_anchor_pages(pdf_path)
