@@ -134,6 +134,7 @@ module Md2pdf
       end
 
       files = Dir.glob('*.md') if files.empty?
+      files = filter_markdown(files)
 
       if files.empty?
         warn 'No .md files found.'
@@ -141,6 +142,16 @@ module Md2pdf
       end
 
       files.each { |path| convert_one(path, cli_opts) }
+    end
+
+    def filter_markdown(files)
+      md, other = files.partition do |path|
+        File.extname(path).downcase == '.md'
+      end
+      other.each do |path|
+        warn "md2pdf: not a markdown file (skipping): #{path}"
+      end
+      md
     end
 
     def convert_one(path, cli_opts)
