@@ -112,8 +112,9 @@ th, td {
   padding: 0.45em 0.6em;
   text-align: left;
   vertical-align: top;
-  overflow-wrap: anywhere;
-  word-break: break-word;
+}
+td {
+  overflow-wrap: break-word;
 }
 td code, th code {
   word-break: break-all;
@@ -122,6 +123,7 @@ td code, th code {
 th {
   background: #efefef;
   font-weight: 700;
+  white-space: nowrap;
 }
 hr {
   border: 0;
