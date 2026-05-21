@@ -9,6 +9,10 @@ module Md2pdf
     PROBE_FILTER_PATH = File.expand_path('probe.lua', __dir__)
     TITLE_PAGE_FILTER_PATH = File.expand_path('title_page.lua', __dir__)
     FOOTNOTES_FILTER_PATH = File.expand_path('footnotes.lua', __dir__)
+    CODE_WBR_FILTER_PATH = File.expand_path('code_wbr.lua', __dir__)
+    TABLE_WRAP_FILTER_PATH = File.expand_path('table_wrap.lua', __dir__)
+    TABLE_HEADER_NOWRAP_FILTER_PATH =
+      File.expand_path('table_header_nowrap.lua', __dir__)
 
     PROBE_RE = /\[\[md2pdf:([^\]]+)\]\]/
     TOC_MIN_H2 = 3
@@ -101,6 +105,9 @@ module Md2pdf
       args += [
         '--lua-filter', TITLE_PAGE_FILTER_PATH,
         '--lua-filter', FOOTNOTES_FILTER_PATH,
+        '--lua-filter', CODE_WBR_FILTER_PATH,
+        '--lua-filter', TABLE_WRAP_FILTER_PATH,
+        '--lua-filter', TABLE_HEADER_NOWRAP_FILTER_PATH,
         '--metadata', "md2pdf-toc=#{toc}"
       ]
       args += ['--lua-filter', DEMOTE_FILTER_PATH] if flat
