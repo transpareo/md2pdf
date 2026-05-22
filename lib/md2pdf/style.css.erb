@@ -144,8 +144,15 @@ table {
   table-layout: auto;
   width: 100%;
   font-size: 0.9em;
-  page-break-inside: avoid;
 }
+/* Let long tables break between rows instead of being pushed
+   to the next page as a unit. `page-break-inside: avoid` on
+   <table> creates a giant gap before the table AND still
+   overflows when the table is taller than a page; flipping
+   the rule to rows keeps individual rows intact and repeats
+   the <thead> on every page the table spans. */
+thead { display: table-header-group; }
+tr { page-break-inside: avoid; }
 th, td {
   border: 1px solid #bbb;
   padding: 0.45em 0.6em;
