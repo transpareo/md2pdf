@@ -7,6 +7,7 @@ module Md2pdf
     # Whitelist of keys we accept from YAML config / front-matter.
     # All keys are normalised to snake_case symbols.
     KEYS = %i[
+      locale
       flat unwrap toc toc_depth toc_label toc_min toc_min_words
       footnotes_label
       font_size line_height font_family code_font_family

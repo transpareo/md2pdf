@@ -1,5 +1,6 @@
 require_relative 'md2pdf/style'
 require_relative 'md2pdf/unwrap'
+require_relative 'md2pdf/locales'
 require_relative 'md2pdf/config'
 require_relative 'md2pdf/runner'
 require_relative 'md2pdf/cli'

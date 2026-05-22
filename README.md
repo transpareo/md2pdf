@@ -39,14 +39,21 @@ Output PDFs are placed next to the input files.
 - `--no-toc` — Disable the table of contents.
 - `--toc-depth=N` — TOC depth. 1 = H2 only, 2 = H2 + H3
   (default), 3 = also H4.
-- `--toc-label=TEXT` — TOC heading text. Default `Contents`.
+- `--toc-label=TEXT` — TOC heading text. Default per locale
+  (`Contents`, `Inhalt`, …).
 - `--toc-min=N` — Min H2 count to auto-include TOC (default 3).
 - `--toc-min-words=N` — Min word count to auto-include TOC
   (default 1500). Both this and `--toc-min` must be met.
 - `--footnotes-label=TEXT` — Heading for the footnotes
-  section at the end of the document. Default `Footnotes`.
-  Pass an empty string (`--footnotes-label=""`) to render
-  the list without a heading.
+  section at the end of the document. Default per locale
+  (`Footnotes`, `Quellen`, …). Pass an empty string
+  (`--footnotes-label=""`) to render the list without a
+  heading.
+- `--locale=CODE` — Locale (`en`, `de`, `fr`, `es`, `it`,
+  `pt`, `nl`). Auto-detected from filenames like
+  `foo.de.md`; falls back to `en` when neither matches.
+  Sets default labels for the TOC and footnotes heading
+  and the `lang` attribute on the HTML / PDF output.
 
 **Typography**
 
@@ -208,6 +215,7 @@ all colors recoloured to grey; no second file needed.
     lib/md2pdf.rb               module loader
     lib/md2pdf/cli.rb           argv parsing + dispatch
     lib/md2pdf/config.rb        config-file + front-matter loader
+    lib/md2pdf/locales.rb       per-locale label defaults
     lib/md2pdf/runner.rb        pandoc + chromium pipeline
     lib/md2pdf/style.rb         CSS template loader
     lib/md2pdf/style.css.erb    print stylesheet

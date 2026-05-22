@@ -20,12 +20,15 @@ module Md2pdf
         --unwrap               Join hard-wrapped paragraph lines.
         --no-toc               Disable the table of contents.
         --toc-depth=N          TOC depth (1=H2, 2=H2+H3, 3=+H4).
-        --toc-label=TEXT       TOC heading text. Default "Contents".
+        --toc-label=TEXT       TOC heading text. Default per locale.
         --toc-min=N            Min H2s to auto-include TOC. Default 3.
         --toc-min-words=N      Min word count to auto-include TOC.
                                Default 1500.
         --footnotes-label=TEXT Footnotes section heading text.
-                               Default "Footnotes". Pass "" for none.
+                               Default per locale. Pass "" for none.
+        --locale=CODE          Locale (en, de, fr, es, it, pt, nl).
+                               Auto-detected from filenames like
+                               foo.de.md; falls back to en.
 
       Typography:
         --font-size=Npt        Body font size. Default 11pt.
@@ -70,6 +73,7 @@ module Md2pdf
     }.freeze
 
     VALUE_FLAGS = {
+      '--locale' => :locale,
       '--toc-depth' => :toc_depth_int,
       '--toc-label' => :toc_label,
       '--toc-min' => :toc_min_int,
@@ -156,6 +160,8 @@ module Md2pdf
 
     def convert_one(path, cli_opts)
       cfg = Config.resolve(path, cli_opts)
+      locale = cfg[:locale] || Locales.detect(path) || 'en'
+      labels = Locales.defaults_for(locale)
       style = STYLE_KEYS.each_with_object({}) do |k, h|
         h[k] = cfg[k] unless cfg[k].nil?
       end
@@ -165,10 +171,11 @@ module Md2pdf
         unwrap: cfg.fetch(:unwrap, false),
         toc: cfg.fetch(:toc, true),
         toc_depth: cfg.fetch(:toc_depth, 2),
-        toc_label: cfg[:toc_label],
+        toc_label: cfg[:toc_label] || labels[:toc_label],
         toc_min: cfg.fetch(:toc_min, 3),
         toc_min_words: cfg.fetch(:toc_min_words, 1500),
-        footnotes_label: cfg.fetch(:footnotes_label, 'Footnotes'),
+        footnotes_label: cfg.fetch(:footnotes_label, labels[:footnotes_label]),
+        locale: locale,
         output: cfg[:output],
         output_dir: cfg[:output_dir],
         open: cfg.fetch(:open, false),

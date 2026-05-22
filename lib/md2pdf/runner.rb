@@ -24,6 +24,7 @@ module Md2pdf
                 toc_label: nil, toc_min: TOC_MIN_H2,
                 toc_min_words: TOC_MIN_WORDS,
                 footnotes_label: nil,
+                locale: nil,
                 output: nil, output_dir: nil, open: false,
                 style: {})
       unless File.exist?(md_path)
@@ -55,6 +56,7 @@ module Md2pdf
           basename: basename, flat: flat, toc: toc,
           toc_depth: toc_depth, toc_label: toc_label,
           footnotes_label: footnotes_label,
+          locale: locale,
           pages_file: pages_file
         )
 
@@ -91,7 +93,7 @@ module Md2pdf
 
     def base_pandoc_args(md_tmp:, css_path:, html_tmp:, basename:,
                          flat:, toc:, toc_depth:, toc_label:,
-                         footnotes_label:, pages_file:)
+                         footnotes_label:, locale:, pages_file:)
       args = [
         PANDOC, md_tmp,
         '--from=gfm+fenced_divs',
@@ -110,6 +112,7 @@ module Md2pdf
         '--lua-filter', TABLE_HEADER_NOWRAP_FILTER_PATH,
         '--metadata', "md2pdf-toc=#{toc}"
       ]
+      args += ['--metadata', "lang=#{locale}"] if locale
       args += ['--lua-filter', DEMOTE_FILTER_PATH] if flat
       if footnotes_label
         args += ['--metadata', "footnotes-title=#{footnotes_label}"]
