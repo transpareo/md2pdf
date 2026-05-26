@@ -15,11 +15,12 @@ the executable into a directory on your PATH:
 ## Usage
 
     md2pdf file.md
-    md2pdf *.md
+    md2pdf *.md                # all .md in current dir
+    md2pdf 'docs/*.md'         # globs are expanded internally
+    md2pdf                     # same as md2pdf *.md
     md2pdf --flat file.md      # only H1 rendered as heading
     md2pdf --unwrap file.md    # join hard-wrapped paragraphs
     md2pdf --no-toc file.md    # skip the TOC
-    md2pdf                     # all .md in current dir
 
 A table of contents (H2 + H3) is inserted by default on its
 own page, between the title page and the first H2, with
@@ -86,8 +87,10 @@ Output PDFs are placed next to the input files.
 
 **Misc**
 
-- `--open` — Open each generated PDF with `xdg-open` after
-  rendering. Useful for quick previews.
+- `--open` — Open the generated PDF with `xdg-open` after
+  rendering. Useful for quick previews. Only allowed when a
+  single file is being converted; rejected with an error when
+  multiple files would be opened at once.
 
 ## Title page
 
@@ -226,3 +229,15 @@ all colors recoloured to grey; no second file needed.
     lib/md2pdf/title_page.lua   title-page wrap filter
     lib/md2pdf/probe.lua        invisible heading probes for
                                 two-pass page-number resolution
+
+## Tests
+
+Minitest suite, no external gems:
+
+    rake test
+
+Unit tests cover config, locales, the unwrap heuristic,
+CLI parsing and the filter pipeline order. One
+integration test drives the real pandoc filter chain and
+asserts that inline `code` in headings keeps clean text
+in the TOC; it skips when `pandoc` is not on `PATH`.

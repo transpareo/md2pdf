@@ -52,8 +52,6 @@ module Md2pdf
       return false if prev_s.match?(/\A---+\s*\z/)
       return false if prev_s.match?(/\A===+\s*\z/)
 
-      return false if prev.end_with?('  ')
-
       return false if prev_s.end_with?(':') &&
         line.match?(/\A\s{2,}/)
 

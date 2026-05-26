@@ -9,6 +9,7 @@ module Md2pdf
     PROBE_FILTER_PATH = File.expand_path('probe.lua', __dir__)
     TITLE_PAGE_FILTER_PATH = File.expand_path('title_page.lua', __dir__)
     FOOTNOTES_FILTER_PATH = File.expand_path('footnotes.lua', __dir__)
+    CODE_ALIAS_FILTER_PATH = File.expand_path('code_alias.lua', __dir__)
     CODE_WBR_FILTER_PATH = File.expand_path('code_wbr.lua', __dir__)
     TABLE_WRAP_FILTER_PATH = File.expand_path('table_wrap.lua', __dir__)
     TABLE_HEADER_NOWRAP_FILTER_PATH =
@@ -104,23 +105,34 @@ module Md2pdf
         '--embed-resources',
         '-o', html_tmp
       ]
+      # The TOC reads heading text, so it must run before
+      # code_wbr rewrites inline code into raw HTML (which
+      # stringify can't read back). demote stays ahead of
+      # the TOC so flattened docs expose no headings to it.
       args += [
         '--lua-filter', TITLE_PAGE_FILTER_PATH,
-        '--lua-filter', FOOTNOTES_FILTER_PATH,
+        '--lua-filter', FOOTNOTES_FILTER_PATH
+      ]
+      args += ['--lua-filter', DEMOTE_FILTER_PATH] if flat
+      if toc
+        args += [
+          '--lua-filter', TOC_FILTER_PATH,
+          '--lua-filter', PROBE_FILTER_PATH
+        ]
+      end
+      args += [
+        '--lua-filter', CODE_ALIAS_FILTER_PATH,
         '--lua-filter', CODE_WBR_FILTER_PATH,
         '--lua-filter', TABLE_WRAP_FILTER_PATH,
         '--lua-filter', TABLE_HEADER_NOWRAP_FILTER_PATH,
         '--metadata', "md2pdf-toc=#{toc}"
       ]
       args += ['--metadata', "lang=#{locale}"] if locale
-      args += ['--lua-filter', DEMOTE_FILTER_PATH] if flat
       if footnotes_label
         args += ['--metadata', "footnotes-title=#{footnotes_label}"]
       end
       if toc
         args += [
-          '--lua-filter', TOC_FILTER_PATH,
-          '--lua-filter', PROBE_FILTER_PATH,
           '--metadata', "toc-depth=#{toc_depth}",
           '--metadata', "toc-pages-file=#{pages_file}"
         ]

@@ -5,7 +5,9 @@ module Md2pdf
 
       Usage:
         md2pdf file.md
-        md2pdf *.md
+        md2pdf *.md                # all .md in current dir
+        md2pdf 'docs/*.md'         # globs are expanded internally
+        md2pdf                     # same as md2pdf *.md
         md2pdf --flat file.md      # only H1 rendered as heading
         md2pdf --unwrap file.md    # join hard-wrapped paragraphs
         md2pdf --no-toc file.md    # skip the TOC
@@ -49,7 +51,9 @@ module Md2pdf
         --no-page-numbers      Hide page numbers.
 
       Misc:
-        --open                 Open each generated PDF with xdg-open.
+        --open                 Open the generated PDF with xdg-open.
+                               Only allowed when a single file is
+                               being converted.
 
       Style:
         --link-color=#hex      Link color. Default #0a4a90.
@@ -137,7 +141,7 @@ module Md2pdf
         exit 0
       end
 
-      files = Dir.glob('*.md') if files.empty?
+      files = expand_args(files)
       files = filter_markdown(files)
 
       if files.empty?
@@ -145,7 +149,30 @@ module Md2pdf
         exit 1
       end
 
+      if cli_opts[:open] && files.size > 1
+        warn "md2pdf: --open is only allowed for a single file " \
+             "(#{files.size} would be converted)"
+        exit 2
+      end
+
       files.each { |path| convert_one(path, cli_opts) }
+    end
+
+    # Default to *.md in the current directory when nothing was
+    # given, and expand glob patterns ourselves so quoted args
+    # like `'docs/*.md'` work the same as a shell-expanded glob.
+    def expand_args(args)
+      return Dir.glob('*.md') if args.empty?
+
+      args.flat_map do |arg|
+        if arg.match?(/[*?\[]/)
+          matches = Dir.glob(arg)
+          warn "md2pdf: no files match: #{arg}" if matches.empty?
+          matches
+        else
+          [arg]
+        end
+      end
     end
 
     def filter_markdown(files)
