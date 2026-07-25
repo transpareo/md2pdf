@@ -45,4 +45,15 @@ Gem::Specification.new do |spec|
   spec.add_dependency 'pdf-reader', '~> 2.12'
   spec.add_dependency 'rouge', '~> 4.2'
   spec.add_dependency 'rubyzip', '~> 2.3'
+
+  # Leads with `doctor` rather than `install-deps`: most machines
+  # already have a browser, and this string is fixed at build time
+  # so it cannot tell which case the reader is in.
+  spec.post_install_message = <<~MESSAGE
+    md2pdf renders through headless Chromium, the one program it
+    cannot ship itself.
+
+      md2pdf doctor        see what this machine already has
+      md2pdf install-deps  fetch a known-good build (no root)
+  MESSAGE
 end
