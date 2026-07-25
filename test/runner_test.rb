@@ -31,6 +31,16 @@ class RunnerTest < Minitest::Test
     assert_equal '/x/y.pdf', path
   end
 
+  # The path is printed when the render finishes, so it has to say
+  # where the file is without the reader resolving anything.
+  def test_output_path_is_always_absolute
+    Dir.chdir('/tmp') do
+      path = Runner.output_path('doc.md', 'doc', 'out/report.pdf', nil)
+
+      assert_equal '/tmp/out/report.pdf', path
+    end
+  end
+
   def test_output_path_honours_output_dir
     path = Runner.output_path('/tmp/a/doc.md', 'doc', nil, '/out')
 

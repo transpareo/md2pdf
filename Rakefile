@@ -41,13 +41,15 @@ task :readme_pdf do
 
   FileUtils.mkdir_p('docs')
 
-  # Badges and the screenshot itself are stripped: they are remote
-  # or self-referential, and a PDF that silently depends on the
-  # network is not a good demonstration of anything.
+  # Badges, the screenshot and the caption about it are stripped:
+  # they are remote, self-referential, or commentary on an image
+  # this document does not contain. A PDF that silently depends on
+  # the network is not a good demonstration of anything either.
   source = File.read('README.md')
     .gsub(/^\[!\[.*?\]\(.*?\)\]\(.*?\)$\n/, '')
     .gsub(/^!\[[^\]]*\]\([^)]*\)$\n/m, '')
     .sub(/^\[\*\*See this README.*?\n\n/m, '')
+    .sub(%r{^<sub>.*?</sub>\n\n}m, '')
 
   Dir.mktmpdir do |dir|
     md = File.join(dir, 'README.md')
@@ -55,8 +57,15 @@ task :readme_pdf do
     # This file is code-dense, so its prose word count lands under
     # the default threshold and the TOC would be auto-skipped. The
     # demo is more useful with one, so ask for it explicitly.
+    #
+    # The logo is passed the same way a user would pass their own.
+    # It ships in this repository, not in the gem, so an install
+    # renders unbranded until someone supplies an asset.
     Transpareo::Md2pdf.convert(
-      md, output: 'docs/README.pdf', toc_min_words: 800
+      md,
+      output: 'docs/README.pdf',
+      toc_min_words: 800,
+      logo: File.expand_path('docs/assets/transpareo-logo.svg', __dir__)
     )
   end
 

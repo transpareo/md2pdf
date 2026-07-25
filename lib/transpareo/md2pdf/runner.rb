@@ -118,11 +118,14 @@ module Transpareo
         )
       end
 
+      # Always absolute, so the line printed at the end says exactly
+      # where the file landed rather than something the reader has
+      # to resolve against a directory they have to guess.
       def output_path(md_path, basename, output, output_dir)
-        return output if output
+        return File.expand_path(output) if output
 
         dir = output_dir || File.dirname(File.expand_path(md_path))
-        File.join(dir, "#{basename}.pdf")
+        File.expand_path("#{basename}.pdf", dir)
       end
 
       def report(pdf_path)

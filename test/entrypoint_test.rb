@@ -57,6 +57,74 @@ class EntrypointTest < Minitest::Test
     end
   end
 
+  # A path names a file relative to whatever declared it, so a
+  # config file can point at assets sitting beside itself.
+  def test_a_relative_logo_resolves_against_the_config_file
+    in_doc(config: "logo: assets/brand.svg\n") do |md|
+      expected = File.join(File.dirname(md), 'assets', 'brand.svg')
+
+      assert_equal expected, Md2pdf.settings(md)[:style][:logo]
+    end
+  end
+
+  def test_a_relative_custom_css_resolves_against_the_config_file
+    in_doc(config: "custom-css: styles/print.css\n") do |md|
+      expected = File.join(File.dirname(md), 'styles', 'print.css')
+
+      assert_equal expected, Md2pdf.settings(md)[:style][:custom_css]
+    end
+  end
+
+  def test_an_absolute_logo_is_left_alone
+    in_doc(config: "logo: /opt/brand.svg\n") do |md|
+      assert_equal '/opt/brand.svg', Md2pdf.settings(md)[:style][:logo]
+    end
+  end
+
+  def test_a_relative_logo_in_front_matter_resolves_against_the_doc
+    body = "---\nmd2pdf:\n  logo: near/me.svg\n---\n\n# T\n"
+    in_doc(body: body) do |md|
+      expected = File.join(File.dirname(md), 'near', 'me.svg')
+
+      assert_equal expected, Md2pdf.settings(md)[:style][:logo]
+    end
+  end
+
+  # Typing a path into a terminal means relative to the terminal.
+  def test_an_explicit_logo_option_is_not_rewritten
+    in_doc do |md|
+      settings = Md2pdf.settings(md, logo: 'rel/flag.svg')
+
+      assert_equal 'rel/flag.svg', settings[:style][:logo]
+    end
+  end
+
+  # A committed `output-dir: build` means build inside the project,
+  # not wherever the shell is standing.
+  def test_a_relative_output_dir_resolves_against_the_config_file
+    in_doc(config: "output-dir: build/pdf\n") do |md|
+      expected = File.join(File.dirname(md), 'build', 'pdf')
+
+      assert_equal expected, Md2pdf.settings(md)[:output_dir]
+    end
+  end
+
+  def test_a_relative_output_resolves_against_the_config_file
+    in_doc(config: "output: dist/report.pdf\n") do |md|
+      expected = File.join(File.dirname(md), 'dist', 'report.pdf')
+
+      assert_equal expected, Md2pdf.settings(md)[:output]
+    end
+  end
+
+  def test_an_explicit_output_option_is_not_rewritten
+    in_doc do |md|
+      settings = Md2pdf.settings(md, output: 'rel/out.pdf')
+
+      assert_equal 'rel/out.pdf', settings[:output]
+    end
+  end
+
   def test_front_matter_beats_the_config_file
     body = "---\nmd2pdf:\n  font-size: 20pt\n---\n\n# T\n"
 

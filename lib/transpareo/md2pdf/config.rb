@@ -36,10 +36,36 @@ module Transpareo
       # walked up from the input's directory.
       def resolve(md_path, cli_opts)
         base_dir = File.dirname(File.expand_path(md_path))
-        file_config = load_config_file(find_config_file(base_dir))
+        config_path = find_config_file(base_dir)
+        file_config = load_config_file(config_path)
         text = File.exist?(md_path) ? File.read(md_path) : ''
         front_matter = load_front_matter(text)
+
+        # A path is relative to whatever declared it, so a config
+        # file can name assets beside itself and a document can name
+        # assets beside itself. Flags stay relative to the shell,
+        # which is what typing a path into a terminal implies.
+        expand_paths(file_config, File.dirname(config_path)) if config_path
+        expand_paths(front_matter, base_dir)
+
         file_config.merge(front_matter).merge(cli_opts)
+      end
+
+      # Every setting that names a file or directory. Outputs are
+      # included deliberately: a committed `output-dir: build` means
+      # build inside this project, not wherever the shell happens to
+      # be standing.
+      PATH_KEYS = %i[logo custom_css output output_dir].freeze
+
+      def expand_paths(settings, dir)
+        PATH_KEYS.each do |key|
+          value = settings[key]
+          next unless value.is_a?(String) && !value.empty?
+          next if File.absolute_path?(value)
+
+          settings[key] = File.expand_path(value, dir)
+        end
+        settings
       end
 
       # Walk up from start_dir, stopping at HOME (inclusive) or root.

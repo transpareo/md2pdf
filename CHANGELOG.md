@@ -14,6 +14,15 @@ First release as a gem.
   the working directory, and local files are embedded as data URIs
   so the finished PDF carries its own artwork. PNG, JPEG, GIF, SVG,
   WebP, AVIF, BMP and ICO. Remote sources are left for the browser.
+- Relative `logo`, `custom-css`, `output` and `output-dir` paths
+  resolve against the file that declared them: a config file
+  against itself, front matter against its document, a flag against
+  the shell. Previously all were resolved against the working
+  directory, so a committed `.md2pdf.yml` only worked when run from
+  one particular place.
+- The path printed after each render is now absolute, so it says
+  where the file landed rather than leaving the reader to resolve
+  it against a directory they have to guess.
 - A `locales:` block in the config file overrides the built-in
   label sets and defines locales that are not built in. Filename
   detection recognises configured codes, so `handbok.sv.md` picks

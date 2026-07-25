@@ -12,9 +12,13 @@ is doing the layout.
 [**See this README rendered by md2pdf**](docs/README.pdf) - the
 image below is that PDF.
 
-![A README rendered to PDF: title page, a table of contents with
-resolved page numbers, and a page of highlighted code and
-tables](docs/sample.png)
+![A README rendered to PDF: a branded title page, a table of
+contents with resolved page numbers, and pages of highlighted code
+and tables](docs/sample.png)
+
+<sub>The logo on those pages is a sample passed via `--logo`, not a
+default. md2pdf renders unbranded unless you supply one. See
+[Using your own logo](#using-your-own-logo).</sub>
 
 ## Why a browser
 
@@ -245,6 +249,12 @@ font the machine may not have.
 | `--output=FILE` | `output` | `<input>.pdf` |
 | `--output-dir=DIR` | `output-dir` | alongside the input |
 
+A relative `output-dir` in a config file resolves against that
+config file, so `output-dir: build` collects PDFs in the project's
+`build/` no matter which directory you run from. As a flag it
+resolves against your shell. md2pdf prints the absolute path of
+each file it writes.
+
 ### Branding
 
 | Flag | Config key | Default | Description |
@@ -254,8 +264,14 @@ font the machine may not have.
 | `--no-footer-logo` | `footer-logo: false` | shown | Hide the per-page footer logo |
 | `--no-page-numbers` | `page-numbers: false` | shown | Hide the page counter |
 
-There is no built-in logo. `MD2PDF_LOGO` supplies a per-machine
-default for `--logo`.
+**md2pdf ships no logo and renders unbranded out of the box.** The
+Transpareo mark on the sample pages above is exactly that: a
+sample, supplied to the renderer the same way you would supply your
+own. It lives in this repository for the demo and is deliberately
+excluded from the published gem, so installing md2pdf gives you a
+blank canvas rather than somebody else's branding.
+
+See [Using your own logo](#using-your-own-logo) below.
 
 ### Style
 
@@ -317,6 +333,55 @@ Because md2pdf walks up from the document until it finds a config,
 one file at the root of a docs tree brands and styles everything
 beneath it. Committing `.md2pdf.yml` next to your docs means every
 contributor produces identical PDFs without passing any flags.
+
+### Using your own logo
+
+Point `--logo` at an SVG, or set `logo:` in `.md2pdf.yml` so every
+document under that directory picks it up:
+
+```yaml
+logo: assets/brand/logo.svg
+```
+
+**A relative path is relative to whatever declared it.** A path in
+`.md2pdf.yml` resolves against that config file, one in a
+document's front matter resolves against the document, and one
+given as a flag resolves against your shell, which is what typing a
+path into a terminal implies. The rule covers every setting naming
+a file or directory: `logo`, `custom-css`, `output` and
+`output-dir`.
+
+That means a repository can commit its branding next to its docs
+and every contributor produces identically branded PDFs from any
+working directory, without passing a flag. `MD2PDF_LOGO` sets a
+per-machine default when the asset lives outside the project.
+
+**One asset covers both placements.** The header logo on page 1
+uses your original colours. The small footer logo repeated on every
+page is derived from the same file by rewriting each fill,
+gradient stop and inline `fill:` to grey, so there is no second
+file to keep in sync.
+
+What makes a good logo file here:
+
+- **SVG.** It is the only format the recolouring understands, and
+  it stays sharp at any zoom. Raster formats work in document body
+  images, not as the logo.
+- **A wide wordmark.** The header box is 42mm by 6.95mm and the
+  footer is 18mm by 2.98mm, both roughly 6:1. A square or tall mark
+  will be squashed, so crop the artwork or set your own sizes with
+  `--custom-css`.
+- **Colour defined as fills or gradient stops**, not embedded
+  raster or CSS classes, or the grey footer derivation will not
+  find anything to recolour.
+
+If the file is missing, md2pdf warns and renders without it rather
+than failing the document. Use `--no-header-logo` or
+`--no-footer-logo` to suppress either placement.
+
+The sample logo in this repository is Transpareo's trademark and is
+present only to demonstrate the feature. The MIT licence covers the
+code, not the brand assets. Replace it with your own.
 
 ### Custom localizations
 
@@ -393,3 +458,7 @@ filter pipeline and the release process.
 ## License
 
 MIT. See [LICENSE.txt](LICENSE.txt).
+
+The licence covers the source. `docs/assets/transpareo-logo.svg` is
+a trademark of Transpareo, included solely as a worked example of
+the branding options, and is not part of the distributed gem.
