@@ -33,7 +33,10 @@ module Transpareo
 
         Content options:
           --flat                 Demote H2/H3 to bold paragraphs.
+          --single-heading       Alias for --flat.
           --unwrap               Join hard-wrapped paragraph lines.
+          --toc                  Force the table of contents on,
+                                 ignoring the auto-skip thresholds.
           --no-toc               Disable the table of contents.
           --toc-depth=N          TOC depth (1=H2, 2=H2+H3, 3=+H4).
           --toc-label=TEXT       TOC heading text. Default per locale.
@@ -78,10 +81,14 @@ module Transpareo
         --output or --output-dir is given.
       HELP
 
+      # A symbol sets that key true, a pair sets it to the given
+      # value, and a hash applies several at once.
       BOOL_FLAGS = {
         '--flat' => :flat, '--single-heading' => :flat,
         '--unwrap' => :unwrap,
-        '--toc' => :toc,
+        # Asking for a TOC explicitly means wanting one, so this
+        # also clears the thresholds that would auto-skip it.
+        '--toc' => { toc: true, toc_min: 0, toc_min_words: 0 },
         '--no-toc' => [:toc, false],
         '--no-header-logo' => [:header_logo, false],
         '--no-footer-logo' => [:footer_logo, false],
@@ -108,12 +115,6 @@ module Transpareo
         '--link-color' => :link_color,
         '--custom-css' => :custom_css
       }.freeze
-
-      STYLE_KEYS = %i[
-        font_size line_height font_family code_font_family
-        page_size margins logo link_color custom_css
-        header_logo footer_logo page_numbers
-      ].freeze
 
       OK = 0
       FAILURE = 1
@@ -246,10 +247,10 @@ module Transpareo
       # rubocop:enable Naming/PredicateMethod
 
       def apply_bool(opts, target)
-        if target.is_a?(Array)
-          opts[target[0]] = target[1]
-        else
-          opts[target] = true
+        case target
+        when Hash then opts.merge!(target)
+        when Array then opts[target[0]] = target[1]
+        else opts[target] = true
         end
       end
 
@@ -279,30 +280,7 @@ module Transpareo
       end
 
       def convert_one(path, cli_opts)
-        cfg = Config.resolve(path, cli_opts)
-        locale = cfg[:locale] || Locales.detect(path) || 'en'
-        labels = Locales.defaults_for(locale)
-        style = STYLE_KEYS.each_with_object({}) do |key, out|
-          out[key] = cfg[key] unless cfg[key].nil?
-        end
-
-        Runner.convert(
-          path,
-          flat: cfg.fetch(:flat, false),
-          unwrap: cfg.fetch(:unwrap, false),
-          toc: cfg.fetch(:toc, true),
-          toc_depth: cfg.fetch(:toc_depth, 2),
-          toc_label: cfg[:toc_label] || labels[:toc_label],
-          toc_min: cfg.fetch(:toc_min, 3),
-          toc_min_words: cfg.fetch(:toc_min_words, 1500),
-          footnotes_label:
-            cfg.fetch(:footnotes_label, labels[:footnotes_label]),
-          locale: locale,
-          output: cfg[:output],
-          output_dir: cfg[:output_dir],
-          open: cfg.fetch(:open, false),
-          style: style
-        )
+        Runner.convert(path, **Md2pdf.settings(path, cli_opts))
       end
 
       def assign(opts, key, value)

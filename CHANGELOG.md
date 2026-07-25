@@ -10,6 +10,14 @@ First release as a gem.
 
 ### Added
 
+- Images. Paths resolve relative to the markdown file rather than
+  the working directory, and local files are embedded as data URIs
+  so the finished PDF carries its own artwork. PNG, JPEG, GIF, SVG,
+  WebP, AVIF, BMP and ICO. Remote sources are left for the browser.
+- A `locales:` block in the config file overrides the built-in
+  label sets and defines locales that are not built in. Filename
+  detection recognises configured codes, so `handbok.sv.md` picks
+  up a custom Swedish entry.
 - `md2pdf doctor` reports every dependency with its version, its
   resolved path and a package-manager hint for the running system.
 - `md2pdf install-deps` downloads a pinned, SHA-256 verified
@@ -39,6 +47,15 @@ First release as a gem.
 
 ### Fixed
 
+- `Transpareo::Md2pdf.convert` ignored `.md2pdf.yml` and front
+  matter entirely, and produced an unlabelled table of contents and
+  footnotes section, because settings resolution lived in the CLI.
+  One resolver now backs both, so a flag, a config key and a
+  library argument produce the same document.
+- `--toc` did nothing distinguishable from the default: it set the
+  flag but the auto-skip thresholds still applied, so there was no
+  way to force a TOC onto a short document short of setting both
+  thresholds to zero. It now clears them.
 - Headings that landed on certain pages could resolve to no page
   number at all, leaving `?` in the table of contents.
 - A missing pandoc reported `pandoc failed: <your document>`, blaming

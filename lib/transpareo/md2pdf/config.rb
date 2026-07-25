@@ -2,6 +2,8 @@
 
 require 'yaml'
 
+require_relative 'locales'
+
 module Transpareo
   module Md2pdf
     # Resolves effective settings from CLI flags, YAML front-matter
@@ -12,7 +14,7 @@ module Transpareo
       # Whitelist of keys we accept from YAML config / front-matter.
       # All keys are normalised to snake_case symbols.
       KEYS = %i[
-        locale
+        locale locales
         flat unwrap toc toc_depth toc_label toc_min toc_min_words
         footnotes_label
         font_size line_height font_family code_font_family
@@ -21,6 +23,11 @@ module Transpareo
         logo header_logo footer_logo page_numbers
         link_color custom_css
       ].freeze
+
+      # `locales` is the one nested key: a map of locale code to
+      # label overrides, so its inner keys need normalising too and
+      # its outer keys must be left alone.
+      NESTED_KEYS = %i[locales].freeze
 
       module_function
 
@@ -103,7 +110,33 @@ module Transpareo
 
         hash.each_with_object({}) do |(k, v), out|
           key = k.to_s.tr('-', '_').to_sym
-          out[key] = v if KEYS.include?(key)
+          next unless KEYS.include?(key)
+
+          out[key] = NESTED_KEYS.include?(key) ? normalize_locales(v) : v
+        end
+      end
+
+      # locales:
+      #   de:
+      #     toc-label: Inhaltsverzeichnis
+      #
+      # Locale codes stay verbatim (downcased); only the label keys
+      # inside are normalised, and unknown ones are dropped.
+      def normalize_locales(value)
+        return {} unless value.is_a?(Hash)
+
+        value.each_with_object({}) do |(code, labels), out|
+          next unless labels.is_a?(Hash)
+
+          entry = normalize_labels(labels)
+          out[code.to_s.downcase] = entry unless entry.empty?
+        end
+      end
+
+      def normalize_labels(labels)
+        labels.each_with_object({}) do |(k, v), out|
+          key = k.to_s.tr('-', '_').to_sym
+          out[key] = v.to_s if Locales::LABEL_KEYS.include?(key)
         end
       end
     end

@@ -7,6 +7,14 @@ class FiltersTest < Minitest::Test
 
   Filters = Transpareo::Md2pdf::Filters
 
+  # A 10x10 PNG, small enough to keep the assertions about encoding
+  # rather than about size.
+  PIXEL = [
+    '89504e470d0a1a0a0000000d494844520000000a0000000a0806000000' \
+    '8d32cfbd0000001c4944415428cf6360a00c30c2a2a2a20c0303a3a0a4' \
+    '4a4c4030000e5a303f1f3f2b2f0000000049454e44ae426082'
+  ].pack('H*')
+
   def test_chain_puts_demote_before_toc
     chain = Filters.chain(flat: true, toc: true)
 
@@ -155,6 +163,81 @@ class FiltersTest < Minitest::Test
     assert_includes render_html("`<script>`\n"), '&lt;script&gt;'
   end
 
+  # Images
+
+  def test_inlines_a_relative_image_as_a_data_uri
+    with_image do |dir|
+      html = render_html("![red](pixel.png)\n", base_dir: dir)
+
+      assert_includes html, 'src="data:image/png;base64,'
+      refute_includes html, 'src="pixel.png"'
+    end
+  end
+
+  def test_inlines_an_image_in_a_subdirectory
+    with_image do |dir|
+      FileUtils.mkdir_p(File.join(dir, 'assets'))
+      FileUtils.cp(
+        File.join(dir, 'pixel.png'), File.join(dir, 'assets', 'n.png')
+      )
+      html = render_html("![n](assets/n.png)\n", base_dir: dir)
+
+      assert_includes html, 'src="data:image/png;base64,'
+    end
+  end
+
+  def test_inlines_an_absolute_image_path
+    with_image do |dir|
+      path = File.join(dir, 'pixel.png')
+      html = render_html("![p](#{path})\n", base_dir: '/elsewhere')
+
+      assert_includes html, 'src="data:image/png;base64,'
+    end
+  end
+
+  def test_leaves_remote_images_alone
+    html = render_html("![r](https://example.com/a.png)\n")
+
+    assert_includes html, 'src="https://example.com/a.png"'
+  end
+
+  def test_leaves_existing_data_uris_alone
+    html = render_html("![d](data:image/gif;base64,AAAA)\n")
+
+    assert_includes html, 'src="data:image/gif;base64,AAAA"'
+  end
+
+  def test_warns_and_keeps_going_when_an_image_is_missing
+    html = nil
+    _, err = capture_io do
+      html = render_html("![gone](nope.png)\n", base_dir: '/tmp')
+    end
+
+    assert_match(/image not found/, err)
+    assert_includes html, 'src="nope.png"'
+  end
+
+  def test_warns_on_an_unsupported_image_type
+    with_image do |dir|
+      FileUtils.cp(
+        File.join(dir, 'pixel.png'), File.join(dir, 'weird.tiff')
+      )
+      _, err = capture_io do
+        render_html("![w](weird.tiff)\n", base_dir: dir)
+      end
+
+      assert_match(/unsupported image type/, err)
+    end
+  end
+
+  def test_strips_a_query_string_before_resolving
+    with_image do |dir|
+      html = render_html("![p](pixel.png?v=2)\n", base_dir: dir)
+
+      assert_includes html, 'src="data:image/png;base64,'
+    end
+  end
+
   # Tables
 
   def test_wraps_tables
@@ -209,5 +292,14 @@ class FiltersTest < Minitest::Test
 
   def test_no_footnote_section_without_references
     refute_includes render_html("plain text\n"), 'footnotes-section'
+  end
+
+  private
+
+  def with_image
+    Dir.mktmpdir do |dir|
+      File.binwrite(File.join(dir, 'pixel.png'), PIXEL)
+      yield dir
+    end
   end
 end

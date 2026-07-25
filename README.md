@@ -1,22 +1,46 @@
 # transpareo-md2pdf
 
-Convert markdown to polished PDFs by rendering through headless
-Chromium, so tables, code blocks and CSS behave the way they do on
-the web instead of the way a bespoke PDF engine guesses.
+[![CI](https://github.com/transpareo/md2pdf/actions/workflows/ci.yml/badge.svg)](https://github.com/transpareo/md2pdf/actions/workflows/ci.yml)
+[![Gem Version](https://badge.fury.io/rb/transpareo-md2pdf.svg)](https://rubygems.org/gems/transpareo-md2pdf)
+[![Ruby](https://img.shields.io/badge/ruby-%3E%3D%203.1-CC342D.svg)](https://www.ruby-lang.org)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE.txt)
+
+Markdown to PDF, rendered through headless Chromium. Tables, code
+blocks and CSS behave the way they do on the web, because a browser
+is doing the layout.
+
+[**See this README rendered by md2pdf**](docs/README.pdf) - the
+image below is that PDF.
+
+![A README rendered to PDF: title page, a table of contents with
+resolved page numbers, and a page of highlighted code and
+tables](docs/sample.png)
+
+## Why a browser
+
+Every layout problem a document generator has to solve has already
+been solved, repeatedly, by browser engines: column sizing, orphan
+and widow control, page breaks inside tables, font fallback,
+ligatures, bidirectional text. Rather than reimplement any of it,
+md2pdf hands Chromium a self-contained HTML document and asks it to
+print.
+
+| | md2pdf | wkhtmltopdf | `pandoc --pdf` |
+|---|---|---|---|
+| Layout engine | current Chromium | WebKit, ~2012 | LaTeX |
+| CSS support | whatever Chrome does | partial, dated | none |
+| TOC page numbers | read from the PDF | manual | yes |
+| External programs | Chromium | wkhtmltopdf | pandoc + TeX |
+| Install size | browser only | ~50 MB | ~2 GB with TeX |
 
 Chromium is the only external program required. Markdown parsing,
-syntax highlighting and PDF inspection are all gems, so
-`bundle install` handles them.
+syntax highlighting and PDF inspection are gems, so `bundle
+install` covers them.
 
 ## Install
 
 ```sh
 gem install transpareo-md2pdf
-```
-
-Then check what the machine already has:
-
-```sh
 md2pdf doctor
 ```
 
@@ -29,8 +53,9 @@ md2pdf doctor
   ok    rubyzip       2.4.1  gem
 ```
 
-If Chromium is missing, either install it with your package manager
-or let md2pdf fetch a known-good build:
+Most machines already have a browser. If yours does not, either
+install one with your package manager or let md2pdf fetch a
+known-good build:
 
 ```sh
 md2pdf install-deps
@@ -38,18 +63,13 @@ md2pdf install-deps
 
 That downloads Google's `chrome-headless-shell` for your platform
 into `~/.local/share/md2pdf`, verifies it against a SHA-256 sum
-shipped in the gem, and unpacks it. It needs no root, never touches
-your `PATH`, and never runs on its own. Add `--force` to reinstall
-and `--latest` to take the current stable build instead of the
-pinned one (which skips checksum verification, since there is
-nothing pinned to compare against).
+shipped in the gem, and unpacks it. No root, no `PATH` changes, and
+it never runs on its own. `--force` reinstalls; `--latest` takes
+current stable instead of the pinned build, which skips checksum
+verification since there is nothing pinned to compare against.
 
-Chromium is resolved in this order:
-
-1. the `CHROMIUM` environment variable
-2. the directory written by `install-deps`
-3. the first match on `PATH`
-4. the standard macOS application bundles
+Chromium is resolved from `CHROMIUM`, then the `install-deps`
+directory, then `PATH`, then the standard macOS app bundles.
 
 ## Usage
 
@@ -63,14 +83,8 @@ md2pdf --unwrap file.md    # join hard-wrapped paragraphs
 md2pdf --no-toc file.md    # skip the TOC
 ```
 
-Output PDFs are written next to the input files unless `--output` or
+PDFs are written next to their inputs unless `--output` or
 `--output-dir` says otherwise.
-
-A table of contents covering H2 and H3 is inserted by default on its
-own page, between the title page and the first H2, with real page
-numbers. It is skipped automatically for short documents: both
-`--toc-min` (default 3 H2s) and `--toc-min-words` (default 1500
-words) must be met.
 
 ### As a library
 
@@ -80,73 +94,62 @@ require 'transpareo/md2pdf'
 Transpareo::Md2pdf.convert('report.md', toc: true, locale: 'de')
 ```
 
-`convert` returns true when the PDF was written. Missing
-dependencies raise `Transpareo::Md2pdf::MissingDependencyError`;
-render failures raise `Transpareo::Md2pdf::ConversionError`. Nothing
-in the library calls `exit`.
+Returns true when the PDF was written. Missing dependencies raise
+`MissingDependencyError`, render failures raise `ConversionError`,
+and nothing in the library calls `exit`.
 
-## Options
+## What it understands
 
-**Content**
+Everything in GitHub Flavored Markdown, plus a few things beyond it.
 
-- `--flat` - Demote H2/H3 to bold paragraphs.
-- `--unwrap` - Join hard-wrapped paragraph lines.
-- `--no-toc` - Disable the table of contents.
-- `--toc-depth=N` - TOC depth. 1 = H2 only, 2 = H2 + H3 (default),
-  3 = also H4.
-- `--toc-label=TEXT` - TOC heading text. Default per locale.
-- `--toc-min=N` - Min H2 count to auto-include the TOC (default 3).
-- `--toc-min-words=N` - Min word count to auto-include the TOC
-  (default 1500). Both thresholds must be met.
-- `--footnotes-label=TEXT` - Heading for the footnotes section.
-  Default per locale. Pass an empty string to render the list with
-  no heading.
-- `--locale=CODE` - `en`, `de`, `fr`, `es`, `it`, `pt`, `nl`.
-  Auto-detected from filenames like `report.de.md`, falling back to
-  `en`. Sets the default TOC and footnote labels and the `lang`
-  attribute on the output.
+| Feature | Notes |
+|---|---|
+| Tables | Header words wrap individually so columns size sanely |
+| Fenced code | Highlighted by Rouge, inline styles, self-contained |
+| Images | Local files inlined, so the PDF has no external refs |
+| Footnotes | Renumbered in reference order, duplicates merged |
+| Task lists | `- [ ]` and `- [x]` |
+| Strikethrough | `~~text~~` |
+| Autolinks | Bare URLs become links |
+| Fenced divs | `::: intro` blocks, for title-page control |
+| Front matter | An `md2pdf:` YAML block, stripped before rendering |
 
-**Typography**
+### Images
 
-- `--font-size=Npt` - Body font size (default `11pt`).
-- `--line-height=N` - Body line-height (default `1.8`).
-- `--font-family="..."` - Body font stack.
-- `--code-font-family="..."` - Monospace stack for code.
+```markdown
+![Architecture](diagrams/overview.png)
+```
 
-**Layout**
+Paths are resolved **relative to the markdown file**, not to your
+working directory, so a document renders the same wherever you run
+md2pdf from. Local images are read and embedded as data URIs, which
+means the finished PDF carries its own artwork and does not break
+when the source tree moves.
 
-- `--page-size=NAME` - `A4`, `Letter`, `A5`, `Legal`, and so on.
-- `--margins="T R B L"` - Page margins (default
-  `"22mm 20mm 24mm 20mm"`).
-- `--output=FILE` - Output path.
-- `--output-dir=DIR` - Output directory.
+PNG, JPEG, GIF, SVG, WebP, AVIF, BMP and ICO are recognised.
+Remote `http(s)` sources are left for the browser to fetch, so they
+need network access at render time. A missing or unreadable image
+warns and is skipped rather than failing the whole document.
 
-**Branding**
+### Table of contents
 
-- `--logo=PATH` - SVG logo. The header uses the original colors; the
-  footer logo is derived from the same file in grey, so no second
-  asset is needed. There is no built-in logo.
-- `--no-header-logo` - Hide the first-page logo.
-- `--no-footer-logo` - Hide the per-page footer logo.
-- `--no-page-numbers` - Hide the page-number counter.
+A TOC covering H2 and H3 is inserted by default on its own page,
+between the title page and the first H2, carrying **real page
+numbers**. It is skipped for short documents: both `--toc-min`
+(default 3 H2s) and `--toc-min-words` (default 1500) must be met.
 
-**Style**
+The numbers are not estimated. The document is rendered once,
+Chromium writes a PDF destination for every heading the TOC links
+to, and the second pass reads that table back and bakes the numbers
+in. Because they come from the PDF's own structure rather than from
+scraping extracted text, they stay correct even when a heading
+lands right at a page boundary. This roughly doubles render time.
 
-- `--link-color=#hex` - Link color (default `#0a4a90`).
-- `--custom-css=FILE` - Append your own stylesheet rules.
+### Title page
 
-**Misc**
-
-- `--open` - Open the PDF with `xdg-open` afterwards. Rejected when
-  multiple files would be opened at once.
-- `-v`, `--version` - Print the version.
-- `-h`, `--help` - Print help.
-
-## Title page
-
-The H1 and lead block are vertically centered on page 1 **only when
-the document has a TOC and no `::: intro :::` block.** Otherwise the
-title flows from the top of page 1.
+The H1 and its lead block are vertically centered on page 1 **only
+when the document has a TOC and no `::: intro :::` block**.
+Otherwise the title flows from the top of page 1.
 
 Use `::: intro :::` to keep an introduction on page 1, right after
 the title:
@@ -166,104 +169,207 @@ the subtitle, before the TOC starts on the following page.
 ## First Section
 ```
 
-## Footnotes
-
-Standard footnote syntax is supported and renders a list of sources
-at the end of the document.
+### Footnotes
 
 ```markdown
 The first attempt failed.[^attempt]
 A later attempt succeeded.[^attempt]
 
 [^attempt]: Internal lab note, 2026-04-19.
-[^rfc]: IETF RFC 8785. https://rfc-editor.org/rfc/rfc8785.
 ```
 
 Each `[^id]` becomes a numbered superscript link, numbered in the
 order references appear. Entries whose definition text is identical
-are merged into a single list item, which is what you want when the
-same source is cited from several places. Every entry gets a
-backlink to its first reference.
+are merged into one item, which is what you want when the same
+source is cited from several places. Every entry links back to its
+first reference.
 
-If the source ends with a manual heading like `## Footnotes`, that
-heading is consumed so it does not double up with the rendered one.
+A trailing `## Footnotes` heading in the source is consumed so it
+does not double up with the rendered one. The heading is set with
+`--footnotes-label="Sources"`, or omitted entirely with
+`--footnotes-label=""`.
 
-The heading is configurable via `--footnotes-label="Sources"`, the
-`footnotes-label` config key, or `--footnotes-label=""` for no
-heading at all.
+## Options reference
 
-## How page numbers are resolved
+Every flag, with the config key that sets the same thing. Flags
+beat front matter, front matter beats `.md2pdf.yml`.
 
-The document is rendered twice. The first pass lays it out with
-placeholder page numbers. Chromium writes a PDF destination for
-every heading the TOC links to, so the second pass reads that table
-to learn which page each heading landed on and bakes the real
-numbers in. This roughly doubles render time.
+### Commands
 
-Because the numbers come from the PDF's own structure rather than
-from scraping extracted text, they are exact and do not depend on
-how a text extractor reconstructs reading order. The TOC entry box
-reserves space for the widest plausible number, so both passes lay
-out identically.
+| Command | Description |
+|---|---|
+| `doctor` | Report dependency status and exit non-zero if any are missing |
+| `install-deps` | Download a pinned, checksum-verified Chromium |
+| `install-deps --latest` | Take current stable instead of the pinned build; skips checksum verification |
+| `install-deps --force` | Reinstall even if that version is already present |
 
-## Configuration files
+### Content
 
-Settings come from three places. Highest priority first:
+| Flag | Config key | Default | Description |
+|---|---|---|---|
+| `--flat` | `flat` | `false` | Demote H2/H3 to bold paragraphs, leaving H1 the only heading |
+| `--single-heading` | `flat` | `false` | Alias for `--flat` |
+| `--unwrap` | `unwrap` | `false` | Join hard-wrapped paragraph lines back into one |
+| `--toc` | `toc` | on | Force a TOC, ignoring the auto-skip thresholds below |
+| `--no-toc` | `toc: false` | | Disable the TOC entirely |
+| `--toc-depth=N` | `toc-depth` | `2` | `1` = H2, `2` = H2 + H3, `3` = also H4 |
+| `--toc-label=TEXT` | `toc-label` | per locale | TOC heading text |
+| `--toc-min=N` | `toc-min` | `3` | H2s required before a TOC appears |
+| `--toc-min-words=N` | `toc-min-words` | `1500` | Words required before a TOC appears |
+| `--footnotes-label=TEXT` | `footnotes-label` | per locale | Footnotes heading; `""` renders the list with no heading |
+| `--locale=CODE` | `locale` | auto | Sets default labels and the `lang` attribute |
+| | `locales` | | Custom label sets, see below. Config only |
 
-1. **CLI flags.**
-2. **YAML front-matter** in the document, under an `md2pdf:` key so
-   it cannot collide with anything else:
+Both `--toc-min` and `--toc-min-words` must be satisfied for a TOC
+to appear automatically. `--toc` overrides both.
 
-   ```markdown
-   ---
-   md2pdf:
-     font-size: 14pt
-     toc-label: Inhalt
-   ---
+### Typography
 
-   # My Document
-   ```
+| Flag | Config key | Default |
+|---|---|---|
+| `--font-size=Npt` | `font-size` | `11pt` |
+| `--line-height=N` | `line-height` | `1.8` |
+| `--font-family="..."` | `font-family` | Plus Jakarta Sans, DejaVu Sans, Helvetica |
+| `--code-font-family="..."` | `code-font-family` | JetBrains Mono, DejaVu Sans Mono, Menlo |
 
-   The whole block is consumed and stripped before rendering, so it
-   never appears in the PDF.
+Fonts must be installed on the rendering machine. Chromium falls
+back silently if one is missing, so check the output when using a
+font the machine may not have.
 
-3. **`.md2pdf.yml`**, found by walking up from the input file's
-   directory until one is found or `$HOME` is reached:
+### Layout
 
-   ```yaml
-   font-size: 14pt
-   line-height: 1.6
-   page-size: A4
-   margins: "22mm 20mm 24mm 20mm"
-   toc-label: Contents
-   logo: /path/to/logo.svg
-   link-color: "#0a4a90"
-   ```
+| Flag | Config key | Default |
+|---|---|---|
+| `--page-size=NAME` | `page-size` | `A4`. Any CSS page size: `Letter`, `A5`, `Legal` |
+| `--margins="T R B L"` | `margins` | `22mm 20mm 24mm 20mm`, in CSS order |
+| `--output=FILE` | `output` | `<input>.pdf` |
+| `--output-dir=DIR` | `output-dir` | alongside the input |
 
-YAML keys mirror the CLI flags without the `--` prefix
-(`font-size`, `toc-label`, and `no-page-numbers` becomes
-`page-numbers: false`).
+### Branding
 
-## Environment variables
+| Flag | Config key | Default | Description |
+|---|---|---|---|
+| `--logo=PATH` | `logo` | none | SVG logo. The footer version is derived from the same file in grey, so one asset covers both |
+| `--no-header-logo` | `header-logo: false` | shown | Hide the first-page logo |
+| `--no-footer-logo` | `footer-logo: false` | shown | Hide the per-page footer logo |
+| `--no-page-numbers` | `page-numbers: false` | shown | Hide the page counter |
+
+There is no built-in logo. `MD2PDF_LOGO` supplies a per-machine
+default for `--logo`.
+
+### Style
+
+| Flag | Config key | Default | Description |
+|---|---|---|---|
+| `--link-color=#hex` | `link-color` | `#0a4a90` | Anchor colour throughout |
+| `--custom-css=FILE` | `custom-css` | none | Appended to the stylesheet, so it wins on ties |
+
+### Misc
+
+| Flag | Description |
+|---|---|
+| `--open` | Open the PDF with `xdg-open` afterwards. Rejected when more than one file would be converted |
+| `-v`, `--version` | Print the version and exit |
+| `-h`, `--help` | Print help and exit |
+
+Exit codes: `0` success, `1` a render or dependency failure, `2` a
+usage error, `130` interrupted.
+
+## Configuration
+
+Settings come from three places, highest priority first.
+
+**1. CLI flags.**
+
+**2. YAML front matter**, under an `md2pdf:` key so it cannot
+collide with anything else:
+
+```markdown
+---
+md2pdf:
+  font-size: 14pt
+  toc-label: Inhalt
+---
+
+# My Document
+```
+
+The block is stripped before rendering, so it never appears in the
+PDF.
+
+**3. `.md2pdf.yml`**, found by walking up from the input file until
+one is found or `$HOME` is reached:
+
+```yaml
+font-size: 14pt
+line-height: 1.6
+page-size: A4
+margins: "22mm 20mm 24mm 20mm"
+logo: assets/brand/logo.svg
+link-color: "#0a4a90"
+page-numbers: false
+```
+
+Keys mirror the CLI flags without the `--` prefix. Negating flags
+invert: `--no-page-numbers` becomes `page-numbers: false`.
+
+Because md2pdf walks up from the document until it finds a config,
+one file at the root of a docs tree brands and styles everything
+beneath it. Committing `.md2pdf.yml` next to your docs means every
+contributor produces identical PDFs without passing any flags.
+
+### Custom localizations
+
+The built-in label sets cover `en`, `de`, `fr`, `es`, `it`, `pt`
+and `nl`. A `locales:` block overrides any of them and adds locales
+that are not built in:
+
+```yaml
+logo: assets/brand/logo.svg
+
+locales:
+  de:
+    toc-label: Inhaltsverzeichnis   # override a built-in
+  sv:
+    toc-label: Innehåll             # add a new one
+    footnotes-label: Fotnoter
+```
+
+An entry only has to name the labels it changes; anything omitted
+keeps its built-in wording. Once a locale is defined here, filename
+detection recognises it too, so `handbok.sv.md` picks up the
+Swedish labels and gets `lang="sv"` on the output.
+
+The document itself still wins, so a single file can opt out:
+
+```markdown
+---
+md2pdf:
+  toc-label: Agenda
+---
+```
+
+### Environment
 
 ```
-CHROMIUM=/usr/bin/chromium     Browser override
-MD2PDF_LOGO=/path/to/logo.svg  Default for --logo
+CHROMIUM=/usr/bin/chromium          Browser override
+MD2PDF_LOGO=/path/to/logo.svg       Default for --logo
 MD2PDF_HOME=~/.local/share/md2pdf   Managed install directory
 ```
 
 ## Docker
-
-The bundled Dockerfile ships Chromium and the fonts it needs:
 
 ```sh
 docker build -t transpareo-md2pdf .
 docker run --rm -v "$PWD:/work" transpareo-md2pdf report.md
 ```
 
+The image carries Chromium and the fonts it needs.
+
 ## Continuous integration
 
-A fresh CI runner has no browser, so install one before rendering:
+GitHub's Ubuntu runners already ship Chrome, which md2pdf finds on
+`PATH`, so usually nothing extra is needed:
 
 ```yaml
 - uses: ruby/setup-ruby@v1
@@ -271,61 +377,18 @@ A fresh CI runner has no browser, so install one before rendering:
     ruby-version: '3.3'
     bundler-cache: true
 
-- name: Install Chromium
-  run: sudo apt-get update && sudo apt-get install -y chromium
-
 - run: bundle exec md2pdf docs/*.md
 ```
 
-Alternatively drop the apt step and run `bundle exec md2pdf
-install-deps`, which caches well because the download URL is pinned.
+Avoid `apt-get install chromium-browser` on Ubuntu runners: it is a
+snap transitional package that does not run headless. On images
+with no browser at all, `bundle exec md2pdf install-deps` caches
+well, since the download URL is pinned.
 
-## Layout
+## Contributing
 
-```
-exe/md2pdf                      CLI entrypoint
-lib/transpareo/md2pdf.rb        module loader + convert()
-  cli.rb                        argv parsing, doctor, install-deps
-  config.rb                     config file + front-matter loader
-  dependencies.rb               Chromium resolution and reporting
-  document.rb                   parsed document + filter host
-  errors.rb                     error hierarchy
-  filters.rb                    ordered filter chain
-  filters/slugs.rb              stable heading ids
-  filters/title_page.rb         title page wrap
-  filters/footnotes.rb          renumber, merge, render footnotes
-  filters/demote.rb             --flat heading demotion
-  filters/toc.rb                table of contents
-  filters/code_highlight.rb     Rouge syntax highlighting
-  filters/code_wbr.rb           break hints in inline code
-  filters/tables.rb             table wrapping and header sizing
-  highlighter.rb                Rouge lexer resolution
-  installer.rb                  Chromium downloader
-  locales.rb                    per-locale label defaults
-  markdown.rb                   markdown to HTML, fenced divs
-  page_index.rb                 heading to page map from the PDF
-  platform.rb                   OS and CPU detection
-  renderer.rb                   standalone HTML document
-  runner.rb                     two-pass render pipeline
-  style.rb                      CSS template loader
-  style.css.erb                 print stylesheet
-  unwrap.rb                     paragraph unwrap heuristic
-```
-
-## Development
-
-```sh
-bin/setup            # bundle install
-rake test            # minitest suite
-rake rubocop         # lint
-rake checksums       # refresh pinned Chromium sums after a bump
-```
-
-The suite covers the filter chain, config resolution, locale
-handling, the unwrap heuristic, CLI parsing and exit codes, the
-dependency resolver and the installer. Integration tests drive a
-real browser and skip when none is available, so the unit suite
-still runs on a bare machine.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the architecture, the
+filter pipeline and the release process.
 
 ## License
 

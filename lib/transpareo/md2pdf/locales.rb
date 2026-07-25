@@ -4,6 +4,10 @@ module Transpareo
   module Md2pdf
     # Per-locale default labels, and locale detection from a
     # filename suffix such as `report.de.md`.
+    #
+    # A config file can override any of these and add locales that
+    # are not built in, so a project can ship its own wording
+    # without the gem having to know about it.
     module Locales
       DEFAULTS = {
         'en' => { toc_label: 'Contents',  footnotes_label: 'Footnotes' },
@@ -15,27 +19,40 @@ module Transpareo
         'nl' => { toc_label: 'Inhoud',    footnotes_label: 'Voetnoten' }
       }.freeze
 
-      FILENAME_RE = /\.([a-z]{2})\.md\z/i
+      LABEL_KEYS = %i[toc_label footnotes_label].freeze
+
+      FILENAME_RE = /\.([a-z]{2,3})\.md\z/i
 
       module_function
 
-      # Pull the locale out of a filename like `foo.de.md`. Returns the
-      # 2-letter code (downcased) only when it matches a known locale,
-      # so unrelated suffixes (`script.js.md`) don't get misread.
-      def detect(path)
-        m = File.basename(path).match(FILENAME_RE)
-        return nil unless m
+      # Built-in labels merged with whatever the config supplied. A
+      # custom entry only has to name the labels it changes.
+      def table(overrides = nil)
+        return DEFAULTS if overrides.nil? || overrides.empty?
 
-        code = m[1].downcase
-        DEFAULTS.key?(code) ? code : nil
+        DEFAULTS.merge(overrides) do |_code, built_in, custom|
+          built_in.merge(custom)
+        end
       end
 
-      def defaults_for(locale)
-        DEFAULTS[locale] || DEFAULTS['en']
+      # Pulls the locale out of a filename like `report.de.md`, only
+      # when the code names a locale we actually know, so unrelated
+      # suffixes such as `script.js.md` are not misread.
+      def detect(path, overrides = nil)
+        match = File.basename(path).match(FILENAME_RE)
+        return nil unless match
+
+        code = match[1].downcase
+        table(overrides).key?(code) ? code : nil
       end
 
-      def known?(locale)
-        DEFAULTS.key?(locale)
+      def defaults_for(locale, overrides = nil)
+        known = table(overrides)
+        known[locale] || known['en'] || DEFAULTS['en']
+      end
+
+      def known?(locale, overrides = nil)
+        table(overrides).key?(locale)
       end
     end
   end

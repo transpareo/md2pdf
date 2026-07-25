@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative 'filters/slugs'
+require_relative 'filters/images'
 require_relative 'filters/title_page'
 require_relative 'filters/footnotes'
 require_relative 'filters/demote'
@@ -22,7 +23,7 @@ module Transpareo
       module_function
 
       def chain(flat:, toc:)
-        chain = [Slugs, TitlePage, Footnotes]
+        chain = [Slugs, Images, TitlePage, Footnotes]
         chain << Demote if flat
         chain << Toc if toc
         chain + [CodeHighlight, CodeWbr, Tables]

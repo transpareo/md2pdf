@@ -6,5 +6,7 @@
 /doc/
 /coverage/
 *.pdf
+# The rendered README is a committed demo, not build output.
+!docs/README.pdf
 *.gem
 .rubocop_cache/

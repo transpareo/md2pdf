@@ -56,6 +56,7 @@ module Transpareo
                  flat: flat, toc: toc, toc_depth: toc_depth,
                  toc_label: toc_label, footnotes_label: footnotes_label,
                  locale: locale, basename: basename,
+                 base_dir: File.dirname(File.expand_path(md_path)),
                  css: Style.build(**style)
                })
 
@@ -90,6 +91,7 @@ module Transpareo
           toc_depth: options[:toc_depth],
           toc_label: options[:toc_label],
           footnotes_label: options[:footnotes_label],
+          base_dir: options[:base_dir],
           toc_pages: pages
         )
         doc.apply(

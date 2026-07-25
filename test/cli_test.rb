@@ -55,6 +55,26 @@ class CLITest < Minitest::Test
     refute opts[:page_numbers]
   end
 
+  def test_toc_flag_clears_the_auto_skip_thresholds
+    opts, = CLI.parse(%w[--toc])
+
+    assert opts[:toc]
+    assert_equal 0, opts[:toc_min]
+    assert_equal 0, opts[:toc_min_words]
+  end
+
+  def test_an_explicit_threshold_after_toc_still_wins
+    opts, = CLI.parse(%w[--toc --toc-min=4])
+
+    assert_equal 4, opts[:toc_min]
+  end
+
+  def test_single_heading_is_an_alias_for_flat
+    opts, = CLI.parse(%w[--single-heading])
+
+    assert opts[:flat]
+  end
+
   def test_parse_accepts_an_empty_value
     opts, = CLI.parse(['--footnotes-label='])
 
@@ -144,6 +164,29 @@ class CLITest < Minitest::Test
     assert_match(/no files match/, err)
   end
 
+  # Documentation drift is the failure mode here: a flag gets added
+  # and only the person who added it knows about it.
+  def test_every_flag_appears_in_the_help_text
+    undocumented = all_flags.reject { |flag| CLI::HELP.include?(flag) }
+
+    assert_empty undocumented, "not in --help: #{undocumented.inspect}"
+  end
+
+  def test_every_flag_appears_in_the_readme
+    readme = File.read(File.expand_path('../README.md', __dir__))
+    undocumented = all_flags.reject { |flag| readme.include?(flag) }
+
+    assert_empty undocumented, "not in README: #{undocumented.inspect}"
+  end
+
+  def test_every_config_key_appears_in_the_readme
+    readme = File.read(File.expand_path('../README.md', __dir__))
+    keys = Transpareo::Md2pdf::Config::KEYS.map { |k| k.to_s.tr('_', '-') }
+    undocumented = keys.reject { |key| readme.include?(key) }
+
+    assert_empty undocumented, "not in README: #{undocumented.inspect}"
+  end
+
   def test_doctor_line_marks_missing_dependencies
     row = { name: 'chromium', ok: false, problem: 'not found',
             version: nil, path: nil }
@@ -158,5 +201,12 @@ class CLITest < Minitest::Test
 
     assert_match(/ok/, line)
     assert_match(/4\.2\.0/, line)
+  end
+
+  private
+
+  def all_flags
+    CLI::BOOL_FLAGS.keys + CLI::VALUE_FLAGS.keys +
+      %w[-h --help -v --version doctor install-deps --latest --force]
   end
 end
