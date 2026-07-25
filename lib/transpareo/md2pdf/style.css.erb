@@ -1,0 +1,284 @@
+/* ============================================================
+   ! ! !   CHROMIUM SHRINK-TO-FIT GOTCHA - READ THIS   ! ! !
+   ============================================================
+   Headless Chromium's --print-to-pdf has an undocumented
+   shrink-to-fit behavior: if ANY element renders wider than
+   the @page content box, Chromium silently scales the ENTIRE
+   body content down (uniformly) to make it fit. Page-margin
+   boxes (the @bottom-right page-number footer below) are NOT
+   scaled - they keep their declared font-size.
+
+   The symptom is always the same: body text suddenly looks
+   too small, and the page-number footer ends up rendering
+   bigger than the body, in obvious contradiction to the CSS.
+   Reading the Tf operators from the PDF or looking at the
+   computed style in the HTML will NOT reveal this - the CSS
+   sizes are correct; the rasterized output is scaled.
+
+   To verify whether it's happening, render the PDF to a
+   bitmap (pdftoppm -r 300) and measure character heights of
+   body text vs the footer page number. If body text is
+   visually smaller than the footer, something on the page is
+   overflowing horizontally.
+
+   Common triggers we've hit:
+   - `white-space: nowrap` on `th` (a wide table header row
+     pushes the table past 100% even if the table itself has
+     max-width: 100%).
+   - `pre`/code blocks without `max-width: 100%` and
+     `white-space: pre-wrap`.
+   - Images/videos/iframes without `max-width: 100%`.
+   - Inline code identifiers too long to break (the
+     CodeWbr filter injects <wbr> hints for this).
+
+   Fix the overflow, don't try to compensate by bumping
+   font-sizes. If you find yourself "fixing" small-looking
+   text by raising em values, stop and check for overflow
+   first. We have been here before.
+   ============================================================ */
+
+@page {
+  size: <%= page_size %>;
+  margin: <%= margins %>;
+  <%- if footer_uri -%>
+  @bottom-left {
+    content: url('<%= footer_uri %>');
+    vertical-align: middle;
+  }
+  <%- end -%>
+  <%- if page_numbers -%>
+  @bottom-right {
+    content: counter(page) " / " counter(pages);
+    font-family: <%= font_family %>;
+    font-size: 9pt;
+    color: #666;
+    vertical-align: middle;
+  }
+  <%- end -%>
+}
+<%- if header_uri -%>
+@page :first {
+  margin-top: 38mm;
+  @top-center {
+    content: url('<%= header_uri %>');
+  }
+}
+<%- end -%>
+html { -webkit-print-color-adjust: exact; }
+.title-page {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: <%= header_uri ? '235mm' : '251mm' %>;
+  page-break-after: always;
+}
+.title-page > * {
+  flex: 0 0 auto;
+}
+body {
+  font-family: <%= font_family %>;
+  font-size: <%= font_size %>;
+  line-height: <%= line_height %>;
+  color: #1d1d1d;
+  max-width: none;
+  margin: 0;
+}
+h1, h2, h3, h4, h5, h6 {
+  font-family: <%= font_family %>;
+  line-height: 1.2;
+  page-break-after: avoid;
+}
+h1 {
+  font-size: 2.5em;
+  margin: 0 0 1em 0;
+  font-weight: 800;
+  text-align: center;
+  page-break-before: always;
+}
+h1:first-of-type { page-break-before: auto; }
+h1 + p,
+header .subtitle,
+header .title + p {
+  text-align: center;
+}
+h2 { font-size: 1.55em; margin: 2.4em 0 0.6em; }
+h3 { font-size: 1.3em; margin: 1.9em 0 0.4em; }
+p  { margin: 0.55em 0; }
+ul, ol { margin: 0.4em 0 0.6em 0; padding-left: 1.6em; }
+li { margin: 0.15em 0; }
+blockquote {
+  border-left: 3px solid #aaa;
+  margin: 0.8em 0;
+  padding: 0 0 0 0.9em;
+  color: #555;
+}
+code {
+  font-family: <%= code_font_family %>;
+  font-size: 0.9em;
+  background: #f3f3f3;
+  padding: 0.05em 0.32em;
+  border-radius: 3px;
+}
+pre {
+  font-family: <%= code_font_family %>;
+  font-size: 0.85em;
+  background: #f5f5f5;
+  padding: 0.7em 0.9em;
+  border-radius: 4px;
+  line-height: 1.4;
+  page-break-inside: avoid;
+  overflow: hidden;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-width: 100%;
+}
+pre code {
+  background: transparent;
+  padding: 0;
+  font-size: 1em;
+}
+img, table, video, iframe { max-width: 100%; }
+table {
+  border-collapse: collapse;
+  margin: 1em 0;
+  table-layout: auto;
+  width: 100%;
+  font-size: 0.9em;
+}
+/* Let long tables break between rows instead of being pushed
+   to the next page as a unit. `page-break-inside: avoid` on
+   <table> creates a giant gap before the table AND still
+   overflows when the table is taller than a page; flipping
+   the rule to rows keeps individual rows intact and repeats
+   the <thead> on every page the table spans. */
+thead { display: table-header-group; }
+tr { page-break-inside: avoid; }
+th, td {
+  border: 1px solid #bbb;
+  padding: 0.45em 0.6em;
+  text-align: left;
+  vertical-align: top;
+}
+td {
+  overflow-wrap: break-word;
+}
+td code, th code {
+  overflow-wrap: break-word;
+  white-space: normal;
+}
+th {
+  background: #efefef;
+  font-weight: 700;
+}
+.table-wrap {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+th .nobr {
+  white-space: nowrap;
+}
+hr {
+  border: 0;
+  border-top: 1px solid #ccc;
+  margin: 1.4em 0;
+}
+.write-line {
+  border-bottom: 1px solid #444;
+  height: 1.7em;
+  margin: 0.2em 0 0.9em 0;
+  page-break-inside: avoid;
+}
+.page-break {
+  page-break-before: always;
+}
+.keep-together {
+  page-break-inside: avoid;
+}
+a { color: <%= link_color %>; text-decoration: none; }
+
+nav#TOC {
+  page-break-before: always;
+  page-break-after: always;
+}
+nav#TOC h2.toc-title {
+  margin: 0 0 1.2em 0;
+  page-break-before: auto;
+  page-break-after: avoid;
+}
+nav#TOC ul.toc-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+nav#TOC ul.toc-list li {
+  margin: 0.5em 0;
+  page-break-inside: avoid;
+}
+nav#TOC ul.toc-list li.toc-l3 {
+  padding-left: 1.5em;
+  font-size: 0.95em;
+  color: #555;
+  margin: 0.25em 0;
+}
+nav#TOC ul.toc-list a {
+  display: flex;
+  align-items: baseline;
+  text-decoration: none;
+  color: inherit;
+}
+nav#TOC ul.toc-list .toc-text {
+  flex: 0 1 auto;
+}
+nav#TOC ul.toc-list .toc-dots {
+  flex: 1 1 auto;
+  border-bottom: 1px dotted #999;
+  margin: 0 0.4em 0.35em;
+  height: 0;
+  align-self: flex-end;
+  min-width: 1em;
+}
+nav#TOC ul.toc-list .toc-page {
+  flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
+  color: #666;
+  white-space: nowrap;
+  min-width: 1.5em;
+  text-align: right;
+}
+
+sup.footnote-ref,
+.footnote-ref {
+  font-variant-numeric: tabular-nums;
+}
+sup.footnote-ref a,
+.footnote-ref a {
+  text-decoration: none;
+}
+.footnotes-title {
+  margin-top: 2.4em;
+}
+div.footnotes {
+  font-size: 0.9em;
+  color: #333;
+}
+div.footnotes ol {
+  padding-left: 1.6em;
+  margin: 0;
+}
+div.footnotes li {
+  margin: 0.5em 0;
+  page-break-inside: avoid;
+}
+div.footnotes li::marker {
+  color: #666;
+}
+div.footnotes a.footnote-back {
+  margin-left: 0.3em;
+  color: #888;
+  text-decoration: none;
+}
+<%- if custom_css -%>
+
+/* User custom CSS */
+<%= custom_css %>
+<%- end -%>

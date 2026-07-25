@@ -1,38 +1,162 @@
+# frozen_string_literal: true
+
 require_relative 'test_helper'
 
 class CLITest < Minitest::Test
+  CLI = Transpareo::Md2pdf::CLI
+
   def test_assign_toc_depth_also_enables_toc
     opts = {}
-    Md2pdf::CLI.assign(opts, :toc_depth_int, '3')
+    CLI.assign(opts, :toc_depth_int, '3')
+
     assert_equal 3, opts[:toc_depth]
-    assert_equal true, opts[:toc]
+    assert opts[:toc]
   end
 
-  def test_assign_toc_min_coerces_integer
+  def test_assign_coerces_integer_flags
     opts = {}
-    Md2pdf::CLI.assign(opts, :toc_min_int, '5')
+    CLI.assign(opts, :toc_min_int, '5')
+    CLI.assign(opts, :toc_min_words_int, '900')
+
     assert_equal 5, opts[:toc_min]
-  end
-
-  def test_assign_toc_min_words_coerces_integer
-    opts = {}
-    Md2pdf::CLI.assign(opts, :toc_min_words_int, '900')
     assert_equal 900, opts[:toc_min_words]
   end
 
   def test_assign_passes_other_keys_through
     opts = {}
-    Md2pdf::CLI.assign(opts, :locale, 'de')
+    CLI.assign(opts, :locale, 'de')
+
     assert_equal 'de', opts[:locale]
   end
 
   def test_filter_markdown_drops_non_markdown
     out = nil
     _, err = capture_io do
-      out = Md2pdf::CLI.filter_markdown(%w[a.md b.txt c.MD d.pdf])
+      out = CLI.filter_markdown(%w[a.md b.txt c.MD d.pdf])
     end
-    assert_equal %w[a.md b.txt c.MD d.pdf].grep(/\.md\z/i), out
+
+    assert_equal %w[a.md c.MD], out
     assert_match(/b\.txt/, err)
     assert_match(/d\.pdf/, err)
+  end
+
+  def test_parse_reads_inline_and_separate_values
+    opts, files, = CLI.parse(%w[--font-size=13pt --locale de a.md])
+
+    assert_equal '13pt', opts[:font_size]
+    assert_equal 'de', opts[:locale]
+    assert_equal %w[a.md], files
+  end
+
+  def test_parse_handles_negating_flags
+    opts, = CLI.parse(%w[--no-toc --no-page-numbers])
+
+    refute opts[:toc]
+    refute opts[:page_numbers]
+  end
+
+  def test_parse_accepts_an_empty_value
+    opts, = CLI.parse(['--footnotes-label='])
+
+    assert_equal '', opts[:footnotes_label]
+  end
+
+  def test_parse_rejects_an_unknown_option
+    opts = nil
+    _, err = capture_io { opts, = CLI.parse(%w[--nonsense]) }
+
+    assert_nil opts
+    assert_match(/unknown option/, err)
+  end
+
+  def test_parse_rejects_an_unknown_assignment_flag
+    opts = nil
+    _, err = capture_io { opts, = CLI.parse(%w[--nope=1]) }
+
+    assert_nil opts
+    assert_match(/unknown option/, err)
+  end
+
+  def test_parse_rejects_a_value_flag_without_a_value
+    opts = nil
+    _, err = capture_io { opts, = CLI.parse(%w[--locale]) }
+
+    assert_nil opts
+    assert_match(/needs a value/, err)
+  end
+
+  def test_run_returns_usage_error_for_a_bad_option
+    status = nil
+    capture_io { status = CLI.run(%w[--nonsense]) }
+
+    assert_equal CLI::USAGE_ERROR, status
+  end
+
+  def test_run_returns_ok_for_help
+    status = nil
+    out, = capture_io { status = CLI.run(%w[--help]) }
+
+    assert_equal CLI::OK, status
+    assert_match(/Convert markdown to PDF/, out)
+  end
+
+  def test_run_reports_version
+    status = nil
+    out, = capture_io { status = CLI.run(%w[--version]) }
+
+    assert_equal CLI::OK, status
+    assert_match(/md2pdf #{Transpareo::Md2pdf::VERSION}/, out)
+  end
+
+  def test_run_fails_when_no_markdown_is_found
+    status = nil
+    Dir.mktmpdir do |dir|
+      Dir.chdir(dir) { capture_io { status = CLI.run([]) } }
+    end
+
+    assert_equal CLI::FAILURE, status
+  end
+
+  def test_run_rejects_open_with_multiple_files
+    status = nil
+    Dir.mktmpdir do |dir|
+      File.write(File.join(dir, 'a.md'), '# a')
+      File.write(File.join(dir, 'b.md'), '# b')
+      Dir.chdir(dir) { capture_io { status = CLI.run(%w[--open]) } }
+    end
+
+    assert_equal CLI::USAGE_ERROR, status
+  end
+
+  def test_expand_args_sorts_glob_matches
+    Dir.mktmpdir do |dir|
+      %w[b.md a.md].each { |n| File.write(File.join(dir, n), 'x') }
+
+      Dir.chdir(dir) do
+        assert_equal %w[a.md b.md], CLI.expand_args(['*.md'])
+      end
+    end
+  end
+
+  def test_expand_args_warns_when_a_glob_matches_nothing
+    _, err = capture_io { CLI.expand_args(['nope/*.md']) }
+
+    assert_match(/no files match/, err)
+  end
+
+  def test_doctor_line_marks_missing_dependencies
+    row = { name: 'chromium', ok: false, problem: 'not found',
+            version: nil, path: nil }
+
+    assert_match(/MISS/, CLI.doctor_line(row, 8))
+  end
+
+  def test_doctor_line_marks_present_dependencies
+    row = { name: 'rouge', ok: true, problem: nil,
+            version: '4.2.0', path: 'gem' }
+    line = CLI.doctor_line(row, 8)
+
+    assert_match(/ok/, line)
+    assert_match(/4\.2\.0/, line)
   end
 end

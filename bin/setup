@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+set -euo pipefail
+IFS=$'\n\t'
+
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
+
+bundle install
+
+echo
+echo "Checking dependencies:"
+bundle exec exe/md2pdf doctor || {
+  echo
+  echo "Run 'bundle exec exe/md2pdf install-deps' to fetch Chromium."
+}

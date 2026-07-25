@@ -1,107 +1,155 @@
-# md2pdf
+# transpareo-md2pdf
 
-Convert markdown to PDF via `pandoc` -> HTML -> headless
-Chromium. Browsers handle table layout, code blocks, and
-CSS far better than wkhtmltopdf.
+Convert markdown to polished PDFs by rendering through headless
+Chromium, so tables, code blocks and CSS behave the way they do on
+the web instead of the way a bespoke PDF engine guesses.
+
+Chromium is the only external program required. Markdown parsing,
+syntax highlighting and PDF inspection are all gems, so
+`bundle install` handles them.
 
 ## Install
 
-Requires `pandoc`, `chromium`, and `pdftotext` (poppler)
-on PATH. `pdftotext` is only needed for `--toc`. Symlink
-the executable into a directory on your PATH:
+```sh
+gem install transpareo-md2pdf
+```
 
-    ln -s ~/code/md2pdf/bin/md2pdf ~/.local/bin/md2pdf
+Then check what the machine already has:
+
+```sh
+md2pdf doctor
+```
+
+```
+  ok    chromium      148.0.7778.215  /usr/bin/chromium
+  ok    commonmarker  2.9.0  gem
+  ok    nokogiri      1.19.4  gem
+  ok    rouge         4.7.0  gem
+  ok    pdf-reader    2.15.1  gem
+  ok    rubyzip       2.4.1  gem
+```
+
+If Chromium is missing, either install it with your package manager
+or let md2pdf fetch a known-good build:
+
+```sh
+md2pdf install-deps
+```
+
+That downloads Google's `chrome-headless-shell` for your platform
+into `~/.local/share/md2pdf`, verifies it against a SHA-256 sum
+shipped in the gem, and unpacks it. It needs no root, never touches
+your `PATH`, and never runs on its own. Add `--force` to reinstall
+and `--latest` to take the current stable build instead of the
+pinned one (which skips checksum verification, since there is
+nothing pinned to compare against).
+
+Chromium is resolved in this order:
+
+1. the `CHROMIUM` environment variable
+2. the directory written by `install-deps`
+3. the first match on `PATH`
+4. the standard macOS application bundles
 
 ## Usage
 
-    md2pdf file.md
-    md2pdf *.md                # all .md in current dir
-    md2pdf 'docs/*.md'         # globs are expanded internally
-    md2pdf                     # same as md2pdf *.md
-    md2pdf --flat file.md      # only H1 rendered as heading
-    md2pdf --unwrap file.md    # join hard-wrapped paragraphs
-    md2pdf --no-toc file.md    # skip the TOC
+```sh
+md2pdf file.md
+md2pdf *.md                # all .md in current dir
+md2pdf 'docs/*.md'         # globs are expanded internally
+md2pdf                     # same as md2pdf *.md
+md2pdf --flat file.md      # only H1 rendered as heading
+md2pdf --unwrap file.md    # join hard-wrapped paragraphs
+md2pdf --no-toc file.md    # skip the TOC
+```
 
-A table of contents (H2 + H3) is inserted by default on its
-own page, between the title page and the first H2, with
-resolved page numbers. Auto-skipped for short documents:
-both `--toc-min` (default 3 H2s) and `--toc-min-words`
-(default 1500 words) must be met. Tune either threshold to
-taste.
+Output PDFs are written next to the input files unless `--output` or
+`--output-dir` says otherwise.
 
-Output PDFs are placed next to the input files.
+A table of contents covering H2 and H3 is inserted by default on its
+own page, between the title page and the first H2, with real page
+numbers. It is skipped automatically for short documents: both
+`--toc-min` (default 3 H2s) and `--toc-min-words` (default 1500
+words) must be met.
+
+### As a library
+
+```ruby
+require 'transpareo/md2pdf'
+
+Transpareo::Md2pdf.convert('report.md', toc: true, locale: 'de')
+```
+
+`convert` returns true when the PDF was written. Missing
+dependencies raise `Transpareo::Md2pdf::MissingDependencyError`;
+render failures raise `Transpareo::Md2pdf::ConversionError`. Nothing
+in the library calls `exit`.
 
 ## Options
 
 **Content**
 
-- `--flat` — Demote H2/H3 to bold paragraphs.
-- `--unwrap` — Join hard-wrapped paragraph lines.
-- `--no-toc` — Disable the table of contents.
-- `--toc-depth=N` — TOC depth. 1 = H2 only, 2 = H2 + H3
-  (default), 3 = also H4.
-- `--toc-label=TEXT` — TOC heading text. Default per locale
-  (`Contents`, `Inhalt`, …).
-- `--toc-min=N` — Min H2 count to auto-include TOC (default 3).
-- `--toc-min-words=N` — Min word count to auto-include TOC
-  (default 1500). Both this and `--toc-min` must be met.
-- `--footnotes-label=TEXT` — Heading for the footnotes
-  section at the end of the document. Default per locale
-  (`Footnotes`, `Quellen`, …). Pass an empty string
-  (`--footnotes-label=""`) to render the list without a
-  heading.
-- `--locale=CODE` — Locale (`en`, `de`, `fr`, `es`, `it`,
-  `pt`, `nl`). Auto-detected from filenames like
-  `foo.de.md`; falls back to `en` when neither matches.
-  Sets default labels for the TOC and footnotes heading
-  and the `lang` attribute on the HTML / PDF output.
+- `--flat` - Demote H2/H3 to bold paragraphs.
+- `--unwrap` - Join hard-wrapped paragraph lines.
+- `--no-toc` - Disable the table of contents.
+- `--toc-depth=N` - TOC depth. 1 = H2 only, 2 = H2 + H3 (default),
+  3 = also H4.
+- `--toc-label=TEXT` - TOC heading text. Default per locale.
+- `--toc-min=N` - Min H2 count to auto-include the TOC (default 3).
+- `--toc-min-words=N` - Min word count to auto-include the TOC
+  (default 1500). Both thresholds must be met.
+- `--footnotes-label=TEXT` - Heading for the footnotes section.
+  Default per locale. Pass an empty string to render the list with
+  no heading.
+- `--locale=CODE` - `en`, `de`, `fr`, `es`, `it`, `pt`, `nl`.
+  Auto-detected from filenames like `report.de.md`, falling back to
+  `en`. Sets the default TOC and footnote labels and the `lang`
+  attribute on the output.
 
 **Typography**
 
-- `--font-size=Npt` — Body font size (default `11pt`).
-- `--line-height=N` — Body line-height (default `1.8`).
-- `--font-family="..."` — Body font stack.
-- `--code-font-family="..."` — Monospace stack for code.
+- `--font-size=Npt` - Body font size (default `11pt`).
+- `--line-height=N` - Body line-height (default `1.8`).
+- `--font-family="..."` - Body font stack.
+- `--code-font-family="..."` - Monospace stack for code.
 
 **Layout**
 
-- `--page-size=NAME` — `A4`, `Letter`, `A5`, `Legal`, …
-- `--margins="T R B L"` — Page margins (default
+- `--page-size=NAME` - `A4`, `Letter`, `A5`, `Legal`, and so on.
+- `--margins="T R B L"` - Page margins (default
   `"22mm 20mm 24mm 20mm"`).
-- `--output=FILE` — Output path.
-- `--output-dir=DIR` — Output directory.
+- `--output=FILE` - Output path.
+- `--output-dir=DIR` - Output directory.
 
 **Branding**
 
-- `--logo=PATH` — SVG logo. Header uses the original colors;
-  footer is **derived automatically** in grey from the same
-  file (no second logo needed).
-- `--no-header-logo` — Hide the first-page logo.
-- `--no-footer-logo` — Hide the per-page footer logo.
-- `--no-page-numbers` — Hide the page-number counter.
+- `--logo=PATH` - SVG logo. The header uses the original colors; the
+  footer logo is derived from the same file in grey, so no second
+  asset is needed. There is no built-in logo.
+- `--no-header-logo` - Hide the first-page logo.
+- `--no-footer-logo` - Hide the per-page footer logo.
+- `--no-page-numbers` - Hide the page-number counter.
 
 **Style**
 
-- `--link-color=#hex` — Link color (default `#0a4a90`).
-- `--custom-css=FILE` — Append your own stylesheet rules.
+- `--link-color=#hex` - Link color (default `#0a4a90`).
+- `--custom-css=FILE` - Append your own stylesheet rules.
 
 **Misc**
 
-- `--open` — Open the generated PDF with `xdg-open` after
-  rendering. Useful for quick previews. Only allowed when a
-  single file is being converted; rejected with an error when
+- `--open` - Open the PDF with `xdg-open` afterwards. Rejected when
   multiple files would be opened at once.
+- `-v`, `--version` - Print the version.
+- `-h`, `--help` - Print help.
 
 ## Title page
 
-The H1 + lead block is vertically centered on page 1
-**only when the document has a TOC and no `::: intro :::`
-block.** In every other case (no TOC, or `::: intro :::`
-present) the title flows from the top of page 1 as plain
-pandoc would render it.
+The H1 and lead block are vertically centered on page 1 **only when
+the document has a TOC and no `::: intro :::` block.** Otherwise the
+title flows from the top of page 1.
 
-Use `::: intro :::` to keep your introduction on page 1
-flowing right after the title:
+Use `::: intro :::` to keep an introduction on page 1, right after
+the title:
 
 ```markdown
 # Document Title
@@ -110,9 +158,8 @@ flowing right after the title:
 
 ::: intro
 
-A multi-paragraph introduction that lands on page 1,
-right after the subtitle, before the TOC kicks in on
-the following page.
+A multi-paragraph introduction that lands on page 1, right after
+the subtitle, before the TOC starts on the following page.
 
 :::
 
@@ -121,8 +168,8 @@ the following page.
 
 ## Footnotes
 
-Pandoc's footnote syntax is supported and used to render a
-list of sources at the end of the document.
+Standard footnote syntax is supported and renders a list of sources
+at the end of the document.
 
 ```markdown
 The first attempt failed.[^attempt]
@@ -132,43 +179,40 @@ A later attempt succeeded.[^attempt]
 [^rfc]: IETF RFC 8785. https://rfc-editor.org/rfc/rfc8785.
 ```
 
-Each `[^id]` reference becomes a numbered superscript link.
-All definitions are collected into a single `Footnotes`
-section appended to the document, with a backref arrow on
-every entry. References that share the same definition text
-are deduplicated to a single list item — useful when the
-same source is cited from multiple places.
+Each `[^id]` becomes a numbered superscript link, numbered in the
+order references appear. Entries whose definition text is identical
+are merged into a single list item, which is what you want when the
+same source is cited from several places. Every entry gets a
+backlink to its first reference.
 
-If the source markdown ends with a manual heading like
-`## Footnotes`, that heading is consumed automatically so
-it doesn't double up with the auto-rendered section.
+If the source ends with a manual heading like `## Footnotes`, that
+heading is consumed so it does not double up with the rendered one.
 
-The section heading is configurable:
+The heading is configurable via `--footnotes-label="Sources"`, the
+`footnotes-label` config key, or `--footnotes-label=""` for no
+heading at all.
 
-- `--footnotes-label="Sources"` (CLI)
-- `footnotes-label: Quellen` (YAML front-matter or
-  `.md2pdf.yml`)
-- `--footnotes-label=""` to render the list without any
-  heading
+## How page numbers are resolved
 
-## TOC rendering
+The document is rendered twice. The first pass lays it out with
+placeholder page numbers. Chromium writes a PDF destination for
+every heading the TOC links to, so the second pass reads that table
+to learn which page each heading landed on and bakes the real
+numbers in. This roughly doubles render time.
 
-Real page numbers are resolved via a two-pass render:
-invisible probes are added to each heading on pass 1,
-located via `pdftotext`, then baked into the TOC on pass 2.
-Roughly doubles render time. The TOC entry box reserves
-space for the largest plausible page number so layout is
-stable across passes.
+Because the numbers come from the PDF's own structure rather than
+from scraping extracted text, they are exact and do not depend on
+how a text extractor reconstructs reading order. The TOC entry box
+reserves space for the widest plausible number, so both passes lay
+out identically.
 
 ## Configuration files
 
-Settings can come from three places. Precedence,
-highest first:
+Settings come from three places. Highest priority first:
 
-1. **CLI flags** — single-doc, highest priority.
-2. **YAML front-matter** in the document itself — lives
-   under an `md2pdf:` key so it doesn't collide with
-   anything else:
+1. **CLI flags.**
+2. **YAML front-matter** in the document, under an `md2pdf:` key so
+   it cannot collide with anything else:
 
    ```markdown
    ---
@@ -180,13 +224,11 @@ highest first:
    # My Document
    ```
 
-   The whole `---…---` block is consumed by md2pdf and
-   stripped before pandoc renders the body, so it never
-   appears in the PDF.
+   The whole block is consumed and stripped before rendering, so it
+   never appears in the PDF.
 
-3. **`.md2pdf.yml`** — project defaults. md2pdf walks up
-   from the input file's directory until it finds one
-   (or hits `$HOME`):
+3. **`.md2pdf.yml`**, found by walking up from the input file's
+   directory until one is found or `$HOME` is reached:
 
    ```yaml
    font-size: 14pt
@@ -198,46 +240,93 @@ highest first:
    link-color: "#0a4a90"
    ```
 
-YAML keys mirror the CLI flag names without the `--`
-prefix (`font-size`, `toc-label`, `no-page-numbers` →
-`page-numbers: false`, etc.).
+YAML keys mirror the CLI flags without the `--` prefix
+(`font-size`, `toc-label`, and `no-page-numbers` becomes
+`page-numbers: false`).
 
 ## Environment variables
 
-    PANDOC=/usr/bin/pandoc
-    CHROMIUM=/usr/bin/chromium
-    MD2PDF_LOGO=/path/to/logo.svg
+```
+CHROMIUM=/usr/bin/chromium     Browser override
+MD2PDF_LOGO=/path/to/logo.svg  Default for --logo
+MD2PDF_HOME=~/.local/share/md2pdf   Managed install directory
+```
 
-`MD2PDF_LOGO` is the fallback for `--logo`. The footer
-logo on every page is derived from the same file with
-all colors recoloured to grey; no second file needed.
+## Docker
+
+The bundled Dockerfile ships Chromium and the fonts it needs:
+
+```sh
+docker build -t transpareo-md2pdf .
+docker run --rm -v "$PWD:/work" transpareo-md2pdf report.md
+```
+
+## Continuous integration
+
+A fresh CI runner has no browser, so install one before rendering:
+
+```yaml
+- uses: ruby/setup-ruby@v1
+  with:
+    ruby-version: '3.3'
+    bundler-cache: true
+
+- name: Install Chromium
+  run: sudo apt-get update && sudo apt-get install -y chromium
+
+- run: bundle exec md2pdf docs/*.md
+```
+
+Alternatively drop the apt step and run `bundle exec md2pdf
+install-deps`, which caches well because the download URL is pinned.
 
 ## Layout
 
-    bin/md2pdf                  CLI entrypoint
-    lib/md2pdf.rb               module loader
-    lib/md2pdf/cli.rb           argv parsing + dispatch
-    lib/md2pdf/config.rb        config-file + front-matter loader
-    lib/md2pdf/locales.rb       per-locale label defaults
-    lib/md2pdf/runner.rb        pandoc + chromium pipeline
-    lib/md2pdf/style.rb         CSS template loader
-    lib/md2pdf/style.css.erb    print stylesheet
-    lib/md2pdf/unwrap.rb        paragraph unwrap heuristic
-    lib/md2pdf/demote.lua       pandoc filter for --flat
-    lib/md2pdf/footnotes.lua    pandoc filter for footnotes
-    lib/md2pdf/toc.lua          builds the TOC AST node
-    lib/md2pdf/title_page.lua   title-page wrap filter
-    lib/md2pdf/probe.lua        invisible heading probes for
-                                two-pass page-number resolution
+```
+exe/md2pdf                      CLI entrypoint
+lib/transpareo/md2pdf.rb        module loader + convert()
+  cli.rb                        argv parsing, doctor, install-deps
+  config.rb                     config file + front-matter loader
+  dependencies.rb               Chromium resolution and reporting
+  document.rb                   parsed document + filter host
+  errors.rb                     error hierarchy
+  filters.rb                    ordered filter chain
+  filters/slugs.rb              stable heading ids
+  filters/title_page.rb         title page wrap
+  filters/footnotes.rb          renumber, merge, render footnotes
+  filters/demote.rb             --flat heading demotion
+  filters/toc.rb                table of contents
+  filters/code_highlight.rb     Rouge syntax highlighting
+  filters/code_wbr.rb           break hints in inline code
+  filters/tables.rb             table wrapping and header sizing
+  highlighter.rb                Rouge lexer resolution
+  installer.rb                  Chromium downloader
+  locales.rb                    per-locale label defaults
+  markdown.rb                   markdown to HTML, fenced divs
+  page_index.rb                 heading to page map from the PDF
+  platform.rb                   OS and CPU detection
+  renderer.rb                   standalone HTML document
+  runner.rb                     two-pass render pipeline
+  style.rb                      CSS template loader
+  style.css.erb                 print stylesheet
+  unwrap.rb                     paragraph unwrap heuristic
+```
 
-## Tests
+## Development
 
-Minitest suite, no external gems:
+```sh
+bin/setup            # bundle install
+rake test            # minitest suite
+rake rubocop         # lint
+rake checksums       # refresh pinned Chromium sums after a bump
+```
 
-    rake test
+The suite covers the filter chain, config resolution, locale
+handling, the unwrap heuristic, CLI parsing and exit codes, the
+dependency resolver and the installer. Integration tests drive a
+real browser and skip when none is available, so the unit suite
+still runs on a bare machine.
 
-Unit tests cover config, locales, the unwrap heuristic,
-CLI parsing and the filter pipeline order. One
-integration test drives the real pandoc filter chain and
-asserts that inline `code` in headings keeps clean text
-in the TOC; it skips when `pandoc` is not on `PATH`.
+## License
+
+MIT. See [LICENSE.txt](LICENSE.txt).

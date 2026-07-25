@@ -1,0 +1,64 @@
+plugins:
+  - rubocop-minitest
+  - rubocop-rake
+
+AllCops:
+  TargetRubyVersion: 3.1
+  NewCops: enable
+  Exclude:
+    - 'vendor/**/*'
+    - 'tmp/**/*'
+
+Layout/LineLength:
+  Max: 80
+  AllowedPatterns:
+    - '^\s*#'
+
+# The project style indents continuation lines by two spaces rather
+# than aligning them under the receiver.
+Layout/MultilineMethodCallIndentation:
+  EnforcedStyle: indented
+
+Layout/FirstArgumentIndentation:
+  EnforcedStyle: consistent
+
+Style/StringLiterals:
+  EnforcedStyle: single_quotes
+
+Style/Documentation:
+  Enabled: true
+
+# module_function modules with many small helpers read better than
+# an artificial split.
+Metrics/ModuleLength:
+  Enabled: false
+
+Metrics/MethodLength:
+  Max: 25
+
+Metrics/AbcSize:
+  Max: 25
+
+Metrics/CyclomaticComplexity:
+  Max: 12
+
+Metrics/PerceivedComplexity:
+  Max: 12
+
+Metrics/ParameterLists:
+  Enabled: false
+
+Metrics/BlockLength:
+  Exclude:
+    - 'test/**/*'
+    - 'Rakefile'
+    - '*.gemspec'
+
+# A test class covering one unit is allowed to be long; splitting it
+# to satisfy a line count would scatter related cases.
+Metrics/ClassLength:
+  Exclude:
+    - 'test/**/*'
+
+Minitest/MultipleAssertions:
+  Enabled: false

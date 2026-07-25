@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        ruby: ['3.1', '3.2', '3.3', '3.4']
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ matrix.ruby }}
+          bundler-cache: true
+
+      # The integration tests render real PDFs and skip without a
+      # browser, so install one rather than let them quietly no-op.
+      - name: Install Chromium
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends chromium-browser \
+            || sudo apt-get install -y --no-install-recommends chromium
+
+      # Fails the job if the integration tests skipped, which would
+      # mean Chromium was not found and the suite silently shrank.
+      - name: Run tests
+        run: |
+          bundle exec rake test 2>&1 | tee out.txt
+          grep -q '0 skips' out.txt
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+      - run: bundle exec rubocop
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+      - name: Build the gem
+        run: gem build transpareo-md2pdf.gemspec
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gem
+          path: '*.gem'

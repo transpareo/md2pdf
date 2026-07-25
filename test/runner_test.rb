@@ -1,71 +1,66 @@
+# frozen_string_literal: true
+
 require_relative 'test_helper'
 
 class RunnerTest < Minitest::Test
+  Runner = Transpareo::Md2pdf::Runner
+
   def test_h2_count_counts_level_two_headings
-    text = "# Title\n## A\n### sub\n## B\n"
-    assert_equal 2, Md2pdf::Runner.h2_count(text)
+    assert_equal 2, Runner.h2_count("# T\n## A\n### sub\n## B\n")
   end
 
   def test_h2_count_ignores_headings_inside_code_fences
     text = "## A\n```\n## not a heading\n```\n## B\n"
-    assert_equal 2, Md2pdf::Runner.h2_count(text)
+
+    assert_equal 2, Runner.h2_count(text)
   end
 
   def test_word_count_counts_alphanumeric_tokens
-    assert_equal 4, Md2pdf::Runner.word_count('one two, three! four.')
+    assert_equal 4, Runner.word_count('one two, three! four.')
   end
 
-  def test_probe_regex_matches_marker_and_captures_id
-    m = 'x [[md2pdf:foo-bar_baz]] y'.match(Md2pdf::Runner::PROBE_RE)
-    assert_equal 'foo-bar_baz', m[1]
+  def test_output_path_defaults_next_to_input
+    path = Runner.output_path('/tmp/a/doc.md', 'doc', nil, nil)
+
+    assert_equal '/tmp/a/doc.pdf', path
   end
 
-  # Regression: the TOC must read heading text before code_wbr
-  # rewrites inline code into raw HTML (which stringify drops),
-  # otherwise code in headings vanishes from TOC entries.
-  def test_toc_filter_runs_before_code_wbr
-    args = build_args(flat: false, toc: true)
-    assert_operator filter_index(args, Md2pdf::Runner::TOC_FILTER_PATH),
-      :<, filter_index(args, Md2pdf::Runner::CODE_WBR_FILTER_PATH)
-    assert_operator filter_index(args, Md2pdf::Runner::PROBE_FILTER_PATH),
-      :<, filter_index(args, Md2pdf::Runner::CODE_WBR_FILTER_PATH)
+  def test_output_path_honours_explicit_output
+    path = Runner.output_path('/tmp/a/doc.md', 'doc', '/x/y.pdf', nil)
+
+    assert_equal '/x/y.pdf', path
   end
 
-  def test_demote_runs_before_toc_when_flat
-    args = build_args(flat: true, toc: true)
-    assert_operator filter_index(args, Md2pdf::Runner::DEMOTE_FILTER_PATH),
-      :<, filter_index(args, Md2pdf::Runner::TOC_FILTER_PATH)
+  def test_output_path_honours_output_dir
+    path = Runner.output_path('/tmp/a/doc.md', 'doc', nil, '/out')
+
+    assert_equal '/out/doc.pdf', path
   end
 
-  def test_no_toc_filters_when_toc_disabled
-    args = build_args(flat: false, toc: false)
-    assert_nil filter_index(args, Md2pdf::Runner::TOC_FILTER_PATH)
-    assert_nil filter_index(args, Md2pdf::Runner::PROBE_FILTER_PATH)
+  def test_convert_reports_missing_input_without_raising
+    result = nil
+    _, err = capture_io do
+      result = Runner.convert(
+        '/nonexistent/x.md', flat: false, unwrap: false
+      )
+    end
+
+    refute result
+    assert_match(/not found/, err)
   end
 
-  def test_no_demote_filter_when_not_flat
-    args = build_args(flat: false, toc: true)
-    assert_nil filter_index(args, Md2pdf::Runner::DEMOTE_FILTER_PATH)
-  end
-
-  def test_code_alias_filter_is_always_present
-    args = build_args(flat: false, toc: false)
-    refute_nil filter_index(args, Md2pdf::Runner::CODE_ALIAS_FILTER_PATH)
-  end
-
-  private
-
-  # Index of a lua filter's path within the assembled args.
-  def filter_index(args, path)
-    args.index(path)
-  end
-
-  def build_args(flat:, toc:)
-    Md2pdf::Runner.base_pandoc_args(
-      md_tmp: 'in.md', css_path: 'style.css', html_tmp: 'out.html',
-      basename: 'doc', flat: flat, toc: toc, toc_depth: 2,
-      toc_label: nil, footnotes_label: nil, locale: nil,
-      pages_file: 'pages.txt'
+  def test_build_html_wraps_body_in_a_document
+    html = Runner.build_html(
+      "# Title\n\ntext\n",
+      { flat: false, toc: false, toc_depth: 2, toc_label: nil,
+        footnotes_label: nil, locale: 'de', basename: 'doc',
+        css: 'body{}' },
+      {}
     )
+
+    assert_includes html, '<!DOCTYPE html>'
+    assert_includes html, '<html lang="de">'
+    assert_includes html, '<title>doc</title>'
+    assert_includes html, 'body{}'
   end
 end

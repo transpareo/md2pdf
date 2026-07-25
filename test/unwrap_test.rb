@@ -1,8 +1,10 @@
+# frozen_string_literal: true
+
 require_relative 'test_helper'
 
 class UnwrapTest < Minitest::Test
   def call(text)
-    Md2pdf::Unwrap.call(text)
+    Transpareo::Md2pdf::Unwrap.call(text)
   end
 
   def test_joins_consecutive_prose_lines
@@ -35,6 +37,7 @@ class UnwrapTest < Minitest::Test
 
   def test_preserves_fenced_code_blocks_verbatim
     src = "```\nline one\nline two\n```\n"
+
     assert_equal src, call(src)
   end
 end
