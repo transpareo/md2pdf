@@ -25,7 +25,7 @@ Gem::Specification.new do |spec|
     'source_code_uri' => spec.homepage,
     'changelog_uri' => "#{spec.homepage}/blob/main/CHANGELOG.md",
     'bug_tracker_uri' => "#{spec.homepage}/issues",
-    'rubygems_mfa_required' => 'true'
+    'rubygems_mfa_required' => 'true',
   }
 
   spec.files = Dir[
@@ -34,7 +34,7 @@ Gem::Specification.new do |spec|
     'exe/*',
     'LICENSE.txt',
     'README.md',
-    'CHANGELOG.md'
+    'CHANGELOG.md',
   ]
   spec.bindir = 'exe'
   spec.executables = ['md2pdf']

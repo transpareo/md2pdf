@@ -51,7 +51,7 @@ class RunnerTest < Minitest::Test
     result = nil
     _, err = capture_io do
       result = Runner.convert(
-        '/nonexistent/x.md', flat: false, unwrap: false
+        '/nonexistent/x.md', flat: false, unwrap: false,
       )
     end
 
@@ -228,7 +228,7 @@ class RunnerTest < Minitest::Test
 
   def test_an_explicit_footer_title_wins
     style = Runner.with_footer_title(
-      { footer_title: 'Custom' }, "# Quarterly Report\n"
+      { footer_title: 'Custom' }, "# Quarterly Report\n",
     )
 
     assert_equal 'Custom', style[:footer_title]
@@ -238,7 +238,7 @@ class RunnerTest < Minitest::Test
   # must not be mistaken for "unset" and refilled from the heading.
   def test_an_explicit_empty_footer_title_is_respected
     style = Runner.with_footer_title(
-      { footer_title: '' }, "# Quarterly Report\n"
+      { footer_title: '' }, "# Quarterly Report\n",
     )
 
     assert_equal '', style[:footer_title]
@@ -253,10 +253,17 @@ class RunnerTest < Minitest::Test
   def test_build_html_wraps_body_in_a_document
     html = Runner.build_html(
       "# Title\n\ntext\n",
-      { flat: false, toc: false, toc_depth: 2, toc_label: nil,
-        footnotes_label: nil, locale: 'de', basename: 'doc',
-        css: 'body{}' },
-      {}
+      {
+        flat: false,
+        toc: false,
+        toc_depth: 2,
+        toc_label: nil,
+        footnotes_label: nil,
+        locale: 'de',
+        basename: 'doc',
+        css: 'body{}',
+      },
+      {},
     )
 
     assert_includes html, '<!DOCTYPE html>'

@@ -104,7 +104,7 @@ module Transpareo
           unless label.to_s.empty?
             text = CGI.escapeHTML(label.to_s)
             doc.fragment.add_child(
-              %(<h2 id="footnotes" class="footnotes-title">#{text}</h2>)
+              %(<h2 id="footnotes" class="footnotes-title">#{text}</h2>),
             )
           end
           doc.fragment.add_child(section_markup(items))
@@ -112,9 +112,8 @@ module Transpareo
 
         def section_markup(items)
           parts = [
-            '<div id="footnotes-section" class="footnotes" ' \
-            'role="doc-endnotes">',
-            '<ol class="footnotes-list">'
+            '<div id="footnotes-section" class="footnotes" role="doc-endnotes">',
+            '<ol class="footnotes-list">',
           ]
           items.each_with_index do |item, i|
             parts << list_item(item, i + 1)

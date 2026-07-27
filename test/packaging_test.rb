@@ -7,7 +7,7 @@ require_relative 'test_helper'
 class PackagingTest < Minitest::Test
   def setup
     @spec = Gem::Specification.load(
-      File.expand_path('../transpareo-md2pdf.gemspec', __dir__)
+      File.expand_path('../transpareo-md2pdf.gemspec', __dir__),
     )
   end
 

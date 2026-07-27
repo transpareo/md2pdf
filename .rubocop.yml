@@ -13,6 +13,20 @@ Layout/LineLength:
   Max: 80
   AllowedPatterns:
     - '^\s*#'
+    # A string literal is never split with a backslash
+    # continuation, so a line carrying a long one is allowed to run
+    # past the margin rather than be broken up.
+    - '["''].{30,}["'']'
+
+# Trailing commas keep the diff for adding an entry to one line.
+Style/TrailingCommaInArrayLiteral:
+  EnforcedStyleForMultiline: consistent_comma
+
+Style/TrailingCommaInHashLiteral:
+  EnforcedStyleForMultiline: consistent_comma
+
+Style/TrailingCommaInArguments:
+  EnforcedStyleForMultiline: consistent_comma
 
 # The project style indents continuation lines by two spaces rather
 # than aligning them under the receiver.

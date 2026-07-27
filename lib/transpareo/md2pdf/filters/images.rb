@@ -25,7 +25,7 @@ module Transpareo
           '.webp' => 'image/webp',
           '.avif' => 'image/avif',
           '.bmp' => 'image/bmp',
-          '.ico' => 'image/x-icon'
+          '.ico' => 'image/x-icon',
         }.freeze
 
         REMOTE = %r{\A(?:https?:|data:|//)}i
@@ -68,8 +68,7 @@ module Transpareo
 
           bytes = File.binread(path)
           if bytes.bytesize > LARGE_FILE_BYTES
-            warn "md2pdf: large image (#{bytes.bytesize / 1024 / 1024} MB): " \
-                 "#{File.basename(path)}"
+            warn "md2pdf: large image (#{bytes.bytesize / 1024 / 1024} MB): #{File.basename(path)}"
           end
 
           "data:#{mime};base64,#{[bytes].pack('m0')}"

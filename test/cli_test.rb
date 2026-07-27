@@ -251,14 +251,14 @@ class CLITest < Minitest::Test
 
   def test_doctor_line_marks_missing_dependencies
     row = { name: 'chromium', ok: false, problem: 'not found',
-            version: nil, path: nil }
+            version: nil, path: nil, }
 
     assert_match(/MISS/, CLI.doctor_line(row, 8))
   end
 
   def test_doctor_line_marks_present_dependencies
     row = { name: 'rouge', ok: true, problem: nil,
-            version: '4.2.0', path: 'gem' }
+            version: '4.2.0', path: 'gem', }
     line = CLI.doctor_line(row, 8)
 
     assert_match(/ok/, line)

@@ -30,7 +30,12 @@ module Transpareo
         Configuration precedence (highest first):
           1. CLI flags
           2. YAML front-matter (md2pdf: block)
-          3. .md2pdf.yml in nearest parent directory
+          3. .md2pdf.yml files between the document and $HOME,
+             nearer ones winning
+          4. ~/.config/md2pdf/config.yml, or ~/.md2pdf.yml
+
+        Every layer is merged key by key, so a file only has to
+        state what it changes.
 
         Content options:
           --flat                 Demote H2/H3 to bold paragraphs.
@@ -94,7 +99,8 @@ module Transpareo
       # A symbol sets that key true, a pair sets it to the given
       # value, and a hash applies several at once.
       BOOL_FLAGS = {
-        '--flat' => :flat, '--single-heading' => :flat,
+        '--flat' => :flat,
+        '--single-heading' => :flat,
         '--unwrap' => :unwrap,
         # Asking for a TOC explicitly means wanting one, so this
         # also clears the thresholds that would auto-skip it.
@@ -103,7 +109,7 @@ module Transpareo
         '--no-header-logo' => [:header_logo, false],
         '--no-footer-logo' => [:footer_logo, false],
         '--no-page-numbers' => [:page_numbers, false],
-        '--open' => :open
+        '--open' => :open,
       }.freeze
 
       VALUE_FLAGS = {
@@ -124,7 +130,7 @@ module Transpareo
         '--logo' => :logo,
         '--footer-title' => :footer_title,
         '--link-color' => :link_color,
-        '--custom-css' => :custom_css
+        '--custom-css' => :custom_css,
       }.freeze
 
       OK = 0
@@ -171,14 +177,17 @@ module Transpareo
         mark = row[:ok] ? 'ok  ' : 'MISS'
         detail = row[:problem] ||
                  [row[:version], row[:path]].compact.join('  ')
-        format("  %<mark>s  %-#{width}<name>s  %<detail>s",
-               mark: mark, name: row[:name], detail: detail)
+        format("  %<mark>s  %-#{width}<name>s  %<detail>s", {
+                 mark: mark,
+                 name: row[:name],
+                 detail: detail,
+               })
       end
 
       def install_deps(args)
         Installer.install(
           latest: args.include?('--latest'),
-          force: args.include?('--force')
+          force: args.include?('--force'),
         )
         OK
       end
@@ -196,8 +205,7 @@ module Transpareo
         return no_input if files.empty?
 
         if opts[:open] && files.size > 1
-          warn 'md2pdf: --open is only allowed for a single file ' \
-               "(#{files.size} would be converted)"
+          warn "md2pdf: --open is only allowed for a single file (#{files.size} would be converted)"
           return USAGE_ERROR
         end
 

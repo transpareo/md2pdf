@@ -7,8 +7,7 @@ require_relative 'test_helper'
 class IntegrationTest < Minitest::Test
   include TestSupport
 
-  SENTENCE = 'Lorem ipsum dolor sit amet consectetur adipiscing ' \
-             'elit sed do eiusmod tempor incididunt ut labore.'
+  SENTENCE = 'Lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore.'
   LONG_BODY = ([SENTENCE] * 30).join(' ')
 
   def setup
@@ -43,7 +42,7 @@ class IntegrationTest < Minitest::Test
     in_document(long_source) do |md, dir|
       capture_io { Transpareo::Md2pdf.convert(md) }
       pages = Transpareo::Md2pdf::PageIndex.call(
-        File.join(dir, 'doc.pdf')
+        File.join(dir, 'doc.pdf'),
       )
       numbers = %w[section-1 section-2 section-3].map { |k| pages[k] }
 
@@ -92,9 +91,9 @@ class IntegrationTest < Minitest::Test
   def test_missing_chromium_raises_a_helpful_error
     in_document(short_source) do |md, _dir|
       with_env('CHROMIUM' => '/definitely/not/a/browser',
-               'MD2PDF_HOME' => '/nope') do
+               'MD2PDF_HOME' => '/nope',) do
         error = assert_raises(
-          Transpareo::Md2pdf::MissingDependencyError
+          Transpareo::Md2pdf::MissingDependencyError,
         ) { capture_io { Transpareo::Md2pdf.convert(md) } }
         assert_match(/chromium/, error.message)
       end

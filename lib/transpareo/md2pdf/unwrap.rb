@@ -22,7 +22,7 @@ module Transpareo
         /\A```/,         # fence
         /\A---+\s*\z/,   # setext rule
         /\A===+\s*\z/,   # setext rule
-        /\A\[.*\]:/      # link reference definition
+        /\A\[.*\]:/, # link reference definition
       ].freeze
 
       # A line matching any of these cannot absorb the line below it.
@@ -30,7 +30,7 @@ module Transpareo
         /\A#/,
         /\A\|/,
         /\A---+\s*\z/,
-        /\A===+\s*\z/
+        /\A===+\s*\z/,
       ].freeze
 
       module_function

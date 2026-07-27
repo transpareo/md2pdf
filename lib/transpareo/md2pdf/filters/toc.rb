@@ -49,7 +49,7 @@ module Transpareo
             %(<span class="toc-text">#{esc(heading.text)}</span>),
             '<span class="toc-dots"></span>',
             %(<span class="toc-page">#{esc(page)}</span>),
-            '</a></li>'
+            '</a></li>',
           ].join
         end
 

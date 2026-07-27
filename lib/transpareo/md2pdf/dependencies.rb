@@ -31,7 +31,7 @@ module Transpareo
 
       MACOS_APP_PATHS = [
         '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-        '/Applications/Chromium.app/Contents/MacOS/Chromium'
+        '/Applications/Chromium.app/Contents/MacOS/Chromium',
       ].freeze
 
       # Reported by `doctor`. Versions come from the loaded specs
@@ -121,9 +121,7 @@ module Transpareo
       def raise_missing
         raise MissingDependencyError.new(
           'chromium',
-          "chromium not found.\n" \
-          'Run `md2pdf install-deps` to fetch a known-good build, ' \
-          "or install one yourself:\n  #{install_hint}"
+          "chromium not found.\nRun `md2pdf install-deps` to fetch a known-good build, or install one yourself:\n  #{install_hint}",
         )
       end
 
@@ -166,11 +164,21 @@ module Transpareo
       def gem_status(name)
         version = Gem.loaded_specs[name]&.version ||
                   Gem::Specification.find_by_name(name).version
-        { name: name, path: 'gem', version: version, ok: true,
-          problem: nil }
+        {
+          name: name,
+          path: 'gem',
+          version: version,
+          ok: true,
+          problem: nil,
+        }
       rescue StandardError
-        { name: name, path: nil, version: nil, ok: false,
-          problem: 'not installed' }
+        {
+          name: name,
+          path: nil,
+          version: nil,
+          ok: false,
+          problem: 'not installed',
+        }
       end
     end
   end

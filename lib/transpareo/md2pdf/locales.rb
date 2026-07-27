@@ -16,7 +16,7 @@ module Transpareo
         'es' => { toc_label: 'Índice',    footnotes_label: 'Notas' },
         'it' => { toc_label: 'Indice',    footnotes_label: 'Note' },
         'pt' => { toc_label: 'Sumário',   footnotes_label: 'Notas' },
-        'nl' => { toc_label: 'Inhoud',    footnotes_label: 'Voetnoten' }
+        'nl' => { toc_label: 'Inhoud',    footnotes_label: 'Voetnoten' },
       }.freeze
 
       LABEL_KEYS = %i[toc_label footnotes_label].freeze

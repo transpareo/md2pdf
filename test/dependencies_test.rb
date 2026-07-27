@@ -82,7 +82,7 @@ class DependenciesTest < Minitest::Test
   def test_chromium_bang_raises_a_helpful_error_when_absent
     with_env('MD2PDF_HOME' => '/nope', 'CHROMIUM' => nil, 'PATH' => '') do
       error = assert_raises(
-        Transpareo::Md2pdf::MissingDependencyError
+        Transpareo::Md2pdf::MissingDependencyError,
       ) { Dependencies.chromium! }
       assert_match(/install-deps/, error.message)
     end

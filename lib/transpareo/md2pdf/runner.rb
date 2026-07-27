@@ -40,7 +40,7 @@ module Transpareo
       OPENERS = {
         macos: %w[open].freeze,
         linux: %w[xdg-open].freeze,
-        windows: ['cmd', '/c', 'start', ''].freeze
+        windows: ['cmd', '/c', 'start', ''].freeze,
       }.freeze
 
       module_function
@@ -67,11 +67,15 @@ module Transpareo
 
         basename = basename_for(md_path, text)
         options = {
-          flat: flat, toc: toc, toc_depth: toc_depth,
-          toc_label: toc_label, footnotes_label: footnotes_label,
-          locale: locale, basename: basename,
+          flat: flat,
+          toc: toc,
+          toc_depth: toc_depth,
+          toc_label: toc_label,
+          footnotes_label: footnotes_label,
+          locale: locale,
+          basename: basename,
           base_dir: base_dir_for(md_path),
-          css: Style.build(**with_footer_title(style, text))
+          css: Style.build(**with_footer_title(style, text)),
         }
 
         if to_stdout?(md_path, output, output_dir)
@@ -113,8 +117,7 @@ module Transpareo
       # it would land in the middle of the document being piped.
       def emit(text, options)
         if $stdout.tty?
-          warn 'md2pdf: refusing to write a PDF to the terminal. ' \
-               'Redirect stdout or pass --output.'
+          warn 'md2pdf: refusing to write a PDF to the terminal. Redirect stdout or pass --output.'
           return false
         end
 
@@ -200,21 +203,21 @@ module Transpareo
           toc_label: options[:toc_label],
           footnotes_label: options[:footnotes_label],
           base_dir: options[:base_dir],
-          toc_pages: pages
+          toc_pages: pages,
         )
-        doc.apply(
-          Filters.chain(flat: options[:flat], toc: options[:toc])
-        )
+        doc.apply(Filters.chain(flat: options[:flat], toc: options[:toc]))
         Renderer.document(
-          body: doc.to_html, title: options[:basename],
-          css: options[:css], lang: options[:locale]
+          body: doc.to_html,
+          title: options[:basename],
+          css: options[:css],
+          lang: options[:locale],
         )
       end
 
       def print_pdf(html_path, pdf_path)
         args = [
           Dependencies.chromium!, *CHROMIUM_ARGS,
-          "--print-to-pdf=#{pdf_path}", "file://#{html_path}"
+          "--print-to-pdf=#{pdf_path}", "file://#{html_path}",
         ]
         out = IO.popen(args, err: %i[child out], &:read)
         return true if $CHILD_STATUS&.success? && File.exist?(pdf_path)
@@ -222,7 +225,7 @@ module Transpareo
         raise ConversionError, "chromium failed to render:\n#{out}"
       rescue Errno::ENOENT, Errno::EACCES => e
         raise MissingDependencyError.new(
-          'chromium', "chromium could not be executed: #{e.message}"
+          'chromium', "chromium could not be executed: #{e.message}",
         )
       end
 
@@ -244,14 +247,12 @@ module Transpareo
       def open_pdf(pdf_path)
         command = opener
         unless command
-          warn 'md2pdf: no way to open a PDF on this platform. ' \
-               'Set MD2PDF_OPENER to the command you use.'
+          warn 'md2pdf: no way to open a PDF on this platform. Set MD2PDF_OPENER to the command you use.'
           return false
         end
 
-        pid = Process.spawn(
-          *command, pdf_path, out: File::NULL, err: File::NULL
-        )
+        silent = { out: File::NULL, err: File::NULL }
+        pid = Process.spawn(*command, pdf_path, silent)
         Process.detach(pid)
         true
       rescue SystemCallError => e

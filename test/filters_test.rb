@@ -11,9 +11,7 @@ class FiltersTest < Minitest::Test
   # A 10x10 PNG, small enough to keep the assertions about encoding
   # rather than about size.
   PIXEL = [
-    '89504e470d0a1a0a0000000d494844520000000a0000000a0806000000' \
-    '8d32cfbd0000001c4944415428cf6360a00c30c2a2a2a20c0303a3a0a4' \
-    '4a4c4030000e5a303f1f3f2b2f0000000049454e44ae426082'
+    '89504e470d0a1a0a0000000d494844520000000a0000000a08060000008d32cfbd0000001c4944415428cf6360a00c30c2a2a2a20c0303a3a0a44a4c4030000e5a303f1f3f2b2f0000000049454e44ae426082',
   ].pack('H*')
 
   def test_chain_puts_demote_before_toc
@@ -101,7 +99,7 @@ class FiltersTest < Minitest::Test
 
   def test_toc_uses_resolved_page_numbers
     html = render_html(
-      "# T\n\n## A\n", toc: true, toc_pages: { 'a' => 4 }
+      "# T\n\n## A\n", toc: true, toc_pages: { 'a' => 4 },
     )
 
     assert_includes html, '<span class="toc-page">4</span>'
@@ -115,7 +113,7 @@ class FiltersTest < Minitest::Test
 
   def test_toc_depth_three_includes_h4
     html = render_html(
-      "## A\n\n### B\n\n#### C\n", toc: true, toc_depth: 3
+      "## A\n\n### B\n\n#### C\n", toc: true, toc_depth: 3,
     )
 
     assert_includes html, 'toc-l4'
@@ -200,7 +198,7 @@ class FiltersTest < Minitest::Test
     with_image do |dir|
       FileUtils.mkdir_p(File.join(dir, 'assets'))
       FileUtils.cp(
-        File.join(dir, 'pixel.png'), File.join(dir, 'assets', 'n.png')
+        File.join(dir, 'pixel.png'), File.join(dir, 'assets', 'n.png'),
       )
       html = render_html("![n](assets/n.png)\n", base_dir: dir)
 
@@ -242,7 +240,7 @@ class FiltersTest < Minitest::Test
   def test_warns_on_an_unsupported_image_type
     with_image do |dir|
       FileUtils.cp(
-        File.join(dir, 'pixel.png'), File.join(dir, 'weird.tiff')
+        File.join(dir, 'pixel.png'), File.join(dir, 'weird.tiff'),
       )
       _, err = capture_io do
         render_html("![w](weird.tiff)\n", base_dir: dir)

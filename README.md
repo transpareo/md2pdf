@@ -435,8 +435,8 @@ md2pdf:
 The block is stripped before rendering, so it never appears in the
 PDF.
 
-**3. `.md2pdf.yml`**, found by walking up from the input file until
-one is found or `$HOME` is reached:
+**3. `.md2pdf.yml` files**, every one between the document and
+`$HOME`, nearer files layering over further ones:
 
 ```yaml
 font-size: 14pt
@@ -451,10 +451,40 @@ page-numbers: false
 Keys mirror the CLI flags without the `--` prefix. Negating flags
 invert: `--no-page-numbers` becomes `page-numbers: false`.
 
-Because md2pdf walks up from the document until it finds a config,
-one file at the root of a docs tree brands and styles everything
-beneath it. Committing `.md2pdf.yml` next to your docs means every
-contributor produces identical PDFs without passing any flags.
+**4. A global config**, applying to every document you render:
+`$XDG_CONFIG_HOME/md2pdf/config.yml` (usually
+`~/.config/md2pdf/config.yml`), or `~/.md2pdf.yml` if that is
+absent. Unlike the walk above, this applies wherever the document
+lives, including outside `$HOME`.
+
+### How the layers combine
+
+Every applicable config is read and merged key by key, least
+specific first:
+
+```
+~/.config/md2pdf/config.yml     logo, fonts, link colour
+  ~/work/.md2pdf.yml            page size for everything at work
+    ~/work/handbook/.md2pdf.yml  a footer title for this one book
+      front matter                one document's own overrides
+        command-line flags         this invocation only
+```
+
+A file only has to state what it changes. Setting `logo` globally
+and `font-size` in a project keeps both: the project file adds to
+what it inherits rather than replacing it. `locales:` merges the
+same way, so a project can adjust one label without discarding the
+rest of the table.
+
+That means one file at the root of a docs tree brands and styles
+everything beneath it, and committing `.md2pdf.yml` next to your
+docs gives every contributor identical PDFs without any flags.
+Relative paths in each file resolve against that file, so a config
+can point at assets beside itself no matter where it is run from.
+
+To see which settings a document ends up with, render it and look,
+or read the files in the order above. There is no precedence
+subtlety beyond nearer-wins.
 
 ### Using your own logo
 

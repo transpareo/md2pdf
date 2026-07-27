@@ -39,19 +39,59 @@ module Transpareo
       # still has to configure the render.
       def resolve(md_path, cli_opts, text = nil)
         base_dir = File.dirname(File.expand_path(md_path))
-        config_path = find_config_file(base_dir)
-        file_config = load_config_file(config_path)
         text ||= File.exist?(md_path) ? File.read(md_path) : ''
-        front_matter = load_front_matter(text)
+        front_matter = expand_paths(load_front_matter(text), base_dir)
 
-        # A path is relative to whatever declared it, so a config
-        # file can name assets beside itself and a document can name
-        # assets beside itself. Flags stay relative to the shell,
+        # A path is relative to whatever declared it, so each config
+        # file is expanded against its own directory before the
+        # layers are combined. Flags stay relative to the shell,
         # which is what typing a path into a terminal implies.
-        expand_paths(file_config, File.dirname(config_path)) if config_path
-        expand_paths(front_matter, base_dir)
+        settings = config_files(base_dir).reduce({}) do |merged, path|
+          layer = expand_paths(load_config_file(path), File.dirname(path))
+          combine(merged, layer)
+        end
 
-        file_config.merge(front_matter).merge(cli_opts)
+        combine(combine(settings, front_matter), cli_opts)
+      end
+
+      # Every config that applies here, least specific first: the
+      # global one, then each ancestor from the outermost in.
+      #
+      # All of them are read and layered. Taking only the nearest
+      # would mean a project file that sets a font size discards the
+      # logo its parent directory established, which is the opposite
+      # of what putting settings higher up is for.
+      def config_files(start_dir)
+        ([global_config_file] + ancestor_config_files(start_dir))
+          .compact.uniq
+      end
+
+      # Honours XDG, and keeps ~/.md2pdf.yml working. Unlike the
+      # ancestor walk this applies wherever the document lives, so a
+      # file outside HOME still picks up personal defaults.
+      def global_config_file
+        [
+          File.join(xdg_config_home, 'md2pdf', 'config.yml'),
+          File.join(Dir.home, CONFIG_FILE),
+        ].find { |path| File.file?(path) }
+      rescue ArgumentError
+        nil
+      end
+
+      def xdg_config_home
+        ENV['XDG_CONFIG_HOME'] || File.join(Dir.home, '.config')
+      end
+
+      # Merges one layer over another. Only `locales` is combined
+      # rather than replaced, so a project can add or adjust a
+      # single locale without discarding the rest.
+      def combine(base, overlay)
+        base.merge(overlay) do |key, old, new|
+          next new unless key == :locales &&
+                          old.is_a?(Hash) && new.is_a?(Hash)
+
+          old.merge(new) { |_code, a, b| a.merge(b) }
+        end
       end
 
       # Every setting that names a file or directory. Outputs are
@@ -71,21 +111,28 @@ module Transpareo
         settings
       end
 
-      # Walk up from start_dir, stopping at HOME (inclusive) or root.
-      def find_config_file(start_dir)
+      # Every .md2pdf.yml between start_dir and HOME, returned
+      # outermost first so nearer files layer over further ones.
+      #
+      # HOME itself is excluded: a config there is personal rather
+      # than structural, and is picked up as the global layer so it
+      # applies to documents outside HOME too.
+      def ancestor_config_files(start_dir)
         home = File.expand_path('~')
+        found = []
         dir = start_dir
         loop do
+          break if dir == home
+
           path = File.join(dir, CONFIG_FILE)
-          return path if File.file?(path)
+          found << path if File.file?(path)
 
           parent = File.dirname(dir)
           break if dir == parent
-          break if dir == home
 
           dir = parent
         end
-        nil
+        found.reverse
       end
 
       def load_config_file(path)

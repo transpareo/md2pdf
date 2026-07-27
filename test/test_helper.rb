@@ -23,14 +23,17 @@ module TestSupport
   # resulting HTML, with no browser involved.
   def render_html(text, **options)
     defaults = {
-      toc: false, toc_depth: 2, toc_label: 'Contents',
-      footnotes_label: 'Footnotes', toc_pages: {}
+      toc: false,
+      toc_depth: 2,
+      toc_label: 'Contents',
+      footnotes_label: 'Footnotes',
+      toc_pages: {},
     }
     options = defaults.merge(options)
     flat = options.delete(:flat) || false
     doc = Transpareo::Md2pdf::Document.from_markdown(text, **options)
     doc.apply(
-      Transpareo::Md2pdf::Filters.chain(flat: flat, toc: options[:toc])
+      Transpareo::Md2pdf::Filters.chain(flat: flat, toc: options[:toc]),
     )
     doc.to_html
   end

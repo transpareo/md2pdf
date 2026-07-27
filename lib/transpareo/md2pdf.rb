@@ -64,7 +64,7 @@ module Transpareo
         output: cfg[:output],
         output_dir: cfg[:output_dir],
         open: cfg.fetch(:open, false),
-        style: style_settings(cfg)
+        style: style_settings(cfg),
       }
     end
 

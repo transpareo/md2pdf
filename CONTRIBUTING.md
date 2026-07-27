@@ -15,8 +15,8 @@ one if not.
 ```sh
 rake test            # minitest suite
 rake rubocop         # lint
-rake readme_pdf      # re-render docs/README.pdf and the screenshot
-rake checksums       # refresh pinned Chromium sums after a bump
+rake docs:readme     # re-render docs/README.pdf and the screenshot
+rake deps:checksums  # refresh pinned Chromium sums after a bump
 ```
 
 Integration tests drive a real browser and skip when none is
@@ -133,7 +133,7 @@ interface moved, because the output is the product.
 ## Releasing
 
 1. `rake test` and `rake rubocop`.
-2. `rake readme_pdf`, so the committed demo matches the release.
+2. `rake docs:readme`, so the committed demo matches the release.
 3. Set the version in `lib/transpareo/md2pdf/version.rb`.
 4. In `CHANGELOG.md`, retitle `## [Unreleased]` to
    `## [x.y.z] - YYYY-MM-DD` and open a fresh `## [Unreleased]`
@@ -143,6 +143,6 @@ interface moved, because the output is the product.
    `rubygems_mfa_required`.
 
 Bumping the pinned Chromium in `installer.rb` means re-running
-`rake checksums` and pasting the results into `CHECKSUMS`. The
+`rake deps:checksums` and pasting the results into `CHECKSUMS`. The
 macOS archives cannot be smoke-tested from Linux, so say so in the
 pull request if that is all you did.

@@ -13,7 +13,7 @@ module Transpareo
       CHROME_SLUGS = {
         %i[linux x86_64] => 'linux64',
         %i[macos x86_64] => 'mac-x64',
-        %i[macos arm64] => 'mac-arm64'
+        %i[macos arm64] => 'mac-arm64',
       }.freeze
 
       module_function

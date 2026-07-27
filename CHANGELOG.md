@@ -39,6 +39,9 @@ and a fresh `## [Unreleased]` opens above it.
   goes to stdout, with progress on stderr so it cannot land inside
   the document, and md2pdf refuses to write PDF bytes to a
   terminal. Front matter in piped input is honoured as usual.
+- A global config at `$XDG_CONFIG_HOME/md2pdf/config.yml`, or
+  `~/.md2pdf.yml`, applying to every document including those
+  outside `$HOME`, which the directory walk never reached.
 - Reading from a pipe announces itself on stderr before it blocks.
   The read waits for the program upstream to close the pipe, so
   without this a slow generator is indistinguishable from md2pdf
@@ -79,6 +82,11 @@ and a fresh `## [Unreleased]` opens above it.
 - The path printed after each render is now absolute, so it says
   where the file landed rather than leaving the reader to resolve
   it against a directory they have to guess.
+- Only the nearest `.md2pdf.yml` was read, so a project file that
+  set one thing silently discarded everything its parent
+  directories established, which is the opposite of what putting
+  settings higher up is for. Every applicable config is now layered
+  key by key, `locales:` included.
 - A filename derived from a piped document's heading is reduced to
   a safe path component. A heading containing a slash created
   directories, one containing `..` wrote outside `--output-dir`

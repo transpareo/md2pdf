@@ -28,9 +28,7 @@ module Transpareo
       CHROME_BASE =
         'https://storage.googleapis.com/chrome-for-testing-public'
 
-      VERSIONS_URL = 'https://googlechromelabs.github.io/' \
-                     'chrome-for-testing/' \
-                     'last-known-good-versions-with-downloads.json'
+      VERSIONS_URL = 'https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions-with-downloads.json'
 
       # SHA-256 of each pinned archive, verified before unpacking.
       # Regenerate with `rake checksums` after bumping the version.
@@ -40,7 +38,7 @@ module Transpareo
         'mac-x64' =>
           'c59bae764cfd38c6f26b076f19bee73dea6f8aa416781ce7467bf363db9e3996',
         'mac-arm64' =>
-          '0bf92463e337d207792b6ba460a06db1d40ab048e72f80cf608942cd7885552f'
+          '0bf92463e337d207792b6ba460a06db1d40ab048e72f80cf608942cd7885552f',
       }.freeze
 
       MAX_REDIRECTS = 5
@@ -74,14 +72,11 @@ module Transpareo
         return slug if slug
 
         raise UnsupportedPlatformError,
-              "no prebuilt Chromium for #{Platform.os}/#{Platform.arch}. " \
-              "Install one with your package manager instead:\n  " \
-              "#{Dependencies.install_hint}"
+              "no prebuilt Chromium for #{Platform.os}/#{Platform.arch}. Install one with your package manager instead:\n  #{Dependencies.install_hint}"
       end
 
       def chrome_url(version, slug)
-        "#{CHROME_BASE}/#{version}/#{slug}/" \
-          "chrome-headless-shell-#{slug}.zip"
+        "#{CHROME_BASE}/#{version}/#{slug}/chrome-headless-shell-#{slug}.zip"
       end
 
       def resolve_latest(slug)
@@ -141,7 +136,7 @@ module Transpareo
       # symlink that would move it out of its own directory.
       def write_shim(target, slug)
         real = File.join(
-          target, "chrome-headless-shell-#{slug}", 'chrome-headless-shell'
+          target, "chrome-headless-shell-#{slug}", 'chrome-headless-shell',
         )
         FileUtils.mkdir_p(Dependencies.bin_dir)
         File.write(shim_path, "#!/bin/sh\nexec #{real.inspect} \"$@\"\n")
@@ -167,7 +162,7 @@ module Transpareo
 
         uri = URI.parse(url)
         Net::HTTP.start(
-          uri.host, uri.port, use_ssl: uri.scheme == 'https'
+          uri.host, uri.port, use_ssl: uri.scheme == 'https',
         ) do |http|
           http.request(Net::HTTP::Get.new(uri)) do |response|
             case response

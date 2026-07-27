@@ -21,10 +21,8 @@ module Transpareo
       DEFAULTS = {
         font_size: '11pt',
         line_height: '1.8',
-        font_family: "'Plus Jakarta Sans', 'DejaVu Sans', " \
-                     "'Helvetica', sans-serif",
-        code_font_family: "'JetBrains Mono', 'DejaVu Sans Mono', " \
-                          "'Menlo', monospace",
+        font_family: "'Plus Jakarta Sans', 'DejaVu Sans', 'Helvetica', sans-serif",
+        code_font_family: "'JetBrains Mono', 'DejaVu Sans Mono', 'Menlo', monospace",
         page_size: 'A4',
         margins: '22mm 20mm 24mm 20mm',
         link_color: '#0a4a90',
@@ -34,7 +32,7 @@ module Transpareo
         page_numbers: true,
         logo: nil,
         custom_css: nil,
-        footer_title: nil
+        footer_title: nil,
       }.freeze
 
       # Keys the ERB template reads straight off the config.
@@ -59,7 +57,7 @@ module Transpareo
           header_uri: header_uri(cfg, logo),
           footer_uri: footer_uri(cfg, logo),
           footer_title: css_string(cfg[:footer_title]),
-          custom_css: read_custom_css(cfg[:custom_css])
+          custom_css: read_custom_css(cfg[:custom_css]),
         )
       end
 
@@ -84,7 +82,7 @@ module Transpareo
 
         data_uri(
           logo, FOOTER_LOGO_WIDTH_MM, FOOTER_LOGO_HEIGHT_MM,
-          recolor: cfg[:footer_grey]
+          recolor: cfg[:footer_grey],
         )
       end
 
@@ -129,10 +127,10 @@ module Transpareo
         svg = svg.gsub(/fill="#[0-9a-fA-F]{3,8}"/, %(fill="#{color}"))
         svg = svg.gsub(/fill:\s*#[0-9a-fA-F]{3,8}/, "fill:#{color}")
         svg = svg.gsub(
-          /stop-color:\s*#[0-9a-fA-F]{3,8}/, "stop-color:#{color}"
+          /stop-color:\s*#[0-9a-fA-F]{3,8}/, "stop-color:#{color}",
         )
         svg.gsub(
-          /stop-color="#[0-9a-fA-F]{3,8}"/, %(stop-color="#{color}")
+          /stop-color="#[0-9a-fA-F]{3,8}"/, %(stop-color="#{color}"),
         )
       end
     end

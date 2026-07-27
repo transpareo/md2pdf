@@ -8,9 +8,7 @@ class InstallerTest < Minitest::Test
   def test_chrome_url_matches_the_published_layout
     url = Installer.chrome_url('151.0.7922.47', 'linux64')
 
-    assert_equal 'https://storage.googleapis.com/' \
-                 'chrome-for-testing-public/151.0.7922.47/linux64/' \
-                 'chrome-headless-shell-linux64.zip', url
+    assert_equal 'https://storage.googleapis.com/chrome-for-testing-public/151.0.7922.47/linux64/chrome-headless-shell-linux64.zip', url
   end
 
   def test_a_checksum_is_pinned_for_every_supported_platform

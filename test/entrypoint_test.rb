@@ -186,7 +186,7 @@ class EntrypointTest < Minitest::Test
 
   def test_unknown_label_keys_in_a_locale_are_dropped
     normalized = Transpareo::Md2pdf::Config.normalize(
-      'locales' => { 'de' => { 'toc-label' => 'X', 'bogus' => 'Y' } }
+      'locales' => { 'de' => { 'toc-label' => 'X', 'bogus' => 'Y' } },
     )
 
     assert_equal({ 'de' => { toc_label: 'X' } }, normalized[:locales])
@@ -194,7 +194,7 @@ class EntrypointTest < Minitest::Test
 
   def test_a_locale_entry_that_is_not_a_hash_is_ignored
     normalized = Transpareo::Md2pdf::Config.normalize(
-      'locales' => { 'de' => 'nonsense' }
+      'locales' => { 'de' => 'nonsense' },
     )
 
     assert_empty normalized[:locales]

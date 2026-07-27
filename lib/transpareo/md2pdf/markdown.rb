@@ -25,9 +25,9 @@ module Transpareo
           # empty <a class="anchor"> into every heading, which then
           # leaks into demoted paragraphs and TOC text. The Slugs
           # filter assigns ids instead, with no extra markup.
-          header_ids: nil
+          header_ids: nil,
         },
-        render: { unsafe: true, hardbreaks: false }
+        render: { unsafe: true, hardbreaks: false },
       }.freeze
 
       FENCE_RE = /\A\s*(?:```|~~~)/
@@ -40,7 +40,7 @@ module Transpareo
         Commonmarker.to_html(
           utf8(expand_fenced_divs(text)),
           options: OPTIONS,
-          plugins: { syntax_highlighter: nil }
+          plugins: { syntax_highlighter: nil },
         )
       end
 

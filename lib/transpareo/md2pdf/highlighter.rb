@@ -18,7 +18,7 @@ module Transpareo
         'console' => 'shell',
         'docker' => 'docker',
         'tsx' => 'typescript',
-        'jsx' => 'javascript'
+        'jsx' => 'javascript',
       }.freeze
 
       module_function

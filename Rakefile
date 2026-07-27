@@ -16,44 +16,54 @@ rescue LoadError
   # RuboCop is a development-only dependency.
 end
 
-desc 'Print SHA-256 sums for the pinned Chromium archives'
-task :checksums do
-  require 'digest'
-  require_relative 'lib/transpareo/md2pdf'
+namespace :deps do
+  desc 'Print SHA-256 sums for the pinned Chromium archives'
+  task :checksums do
+    require 'digest'
+    require_relative 'lib/transpareo/md2pdf'
 
-  installer = Transpareo::Md2pdf::Installer
-  version = installer::CHROME_VERSION
+    installer = Transpareo::Md2pdf::Installer
+    version = installer::CHROME_VERSION
 
-  Transpareo::Md2pdf::Platform::CHROME_SLUGS.each_value do |slug|
-    url = installer.chrome_url(version, slug)
-    Dir.mktmpdir do |dir|
-      archive = File.join(dir, 'c.zip')
-      installer.download(url, archive)
-      puts "  '#{slug}' => '#{Digest::SHA256.file(archive).hexdigest}',"
+    Transpareo::Md2pdf::Platform::CHROME_SLUGS.each_value do |slug|
+      url = installer.chrome_url(version, slug)
+      Dir.mktmpdir do |dir|
+        archive = File.join(dir, 'c.zip')
+        installer.download(url, archive)
+        puts "  '#{slug}' => '#{Digest::SHA256.file(archive).hexdigest}',"
+      end
     end
   end
 end
 
-desc 'Render README.md to docs/README.pdf and refresh the screenshot'
-task :readme_pdf do
-  require 'fileutils'
-  require_relative 'lib/transpareo/md2pdf'
+namespace :docs do
+  desc 'Render README.md to docs/README.pdf and refresh the screenshot'
+  task :readme do
+    require 'fileutils'
+    require_relative 'lib/transpareo/md2pdf'
 
-  FileUtils.mkdir_p('docs')
+    FileUtils.mkdir_p('docs')
+    render_readme_pdf
+    rasterise_readme_pdf
+  end
+end
 
-  # Badges, the screenshot and the caption about it are stripped:
-  # they are remote, self-referential, or commentary on an image
-  # this document does not contain. A PDF that silently depends on
-  # the network is not a good demonstration of anything either.
-  source = File.read('README.md')
+# Badges, the screenshot and the caption about it are stripped:
+# they are remote, self-referential, or commentary on an image this
+# document does not contain. A PDF that silently depends on the
+# network is not a good demonstration of anything either.
+def readme_source
+  File.read('README.md')
     .gsub(/^\[!\[.*?\]\(.*?\)\]\(.*?\)$\n/, '')
     .gsub(/^!\[[^\]]*\]\([^)]*\)$\n/m, '')
     .sub(/^\[\*\*See this README.*?\n\n/m, '')
     .sub(%r{^<sub>.*?</sub>\n\n}m, '')
+end
 
+def render_readme_pdf
   Dir.mktmpdir do |dir|
     md = File.join(dir, 'README.md')
-    File.write(md, source)
+    File.write(md, readme_source)
     # This file is code-dense, so its prose word count lands under
     # the default threshold and the TOC would be auto-skipped. The
     # demo is more useful with one, so ask for it explicitly.
@@ -65,11 +75,13 @@ task :readme_pdf do
       md,
       output: 'docs/README.pdf',
       toc_min_words: 800,
-      logo: File.expand_path('docs/assets/transpareo-logo.svg', __dir__)
+      logo: File.expand_path('docs/assets/transpareo-logo.svg', __dir__),
     )
   end
+end
 
-  next unless system('pdftoppm', '-v', out: File::NULL, err: File::NULL)
+def rasterise_readme_pdf
+  return unless system('pdftoppm', '-v', out: File::NULL, err: File::NULL)
 
   Dir.mktmpdir do |dir|
     prefix = File.join(dir, 'page')
