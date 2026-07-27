@@ -90,12 +90,38 @@ lib/transpareo/md2pdf.rb        module loader + convert()
 
 RuboCop is the arbiter and CI enforces it. Beyond that:
 
-- Lines stay within 80 columns.
+- Lines stay within 80 columns, except one carrying a long string
+  literal. Literals are never split with a backslash continuation;
+  the line is allowed to run long instead.
+- Trailing commas on multi-line arrays, hashes and argument lists.
+- A multi-line hash puts exactly one key per line. Short hashes may
+  stay on a single line.
 - Comments explain why, not what. A comment that would stop making
   sense once the surrounding work is forgotten is saying the wrong
   thing.
 - No em-dashes or arrow glyphs anywhere, including comments and
   commit messages. Use a spaced hyphen.
+
+### Errors live in one file, on purpose
+
+The house style says custom errors belong in the class that raises
+them rather than a central `errors.rb`. This gem deliberately does
+the opposite, because a library is consumed differently from an
+application: callers need one class to rescue.
+
+```ruby
+begin
+  Transpareo::Md2pdf.convert('report.md')
+rescue Transpareo::Md2pdf::Error => e
+  # every failure this gem raises, whatever went wrong
+end
+```
+
+`errors.rb` holds that base and the specific errors inheriting from
+it. Keeping them together means the whole failure surface is
+readable in one screen, which is what someone rescuing it needs.
+Add new errors there, inheriting from `Error`, named for the
+failure rather than the component.
 
 ## Adding a filter
 
