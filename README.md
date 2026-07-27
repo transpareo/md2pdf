@@ -29,17 +29,24 @@ ligatures, bidirectional text. Rather than reimplement any of it,
 md2pdf hands Chromium a self-contained HTML document and asks it to
 print.
 
-| | md2pdf | wkhtmltopdf | `pandoc --pdf` |
-|---|---|---|---|
-| Layout engine | current Chromium | WebKit, ~2012 | LaTeX |
-| CSS support | whatever Chrome does | partial, dated | none |
-| TOC page numbers | read from the PDF | manual | yes |
-| External programs | Chromium | wkhtmltopdf | pandoc + TeX |
-| Install size | browser only | ~50 MB | ~2 GB with TeX |
+| | md2pdf | Prawn | wkhtmltopdf | `pandoc --pdf` |
+|---|---|---|---|---|
+| Input | Markdown | Ruby calls | HTML | Markdown |
+| Layout engine | current Chromium | your own bounding boxes | WebKit, ~2012 | LaTeX |
+| CSS support | whatever Chrome does | none | partial, dated | none |
+| TOC page numbers | read from the PDF | manual | manual | yes |
+| External programs | Chromium | none | wkhtmltopdf | pandoc + TeX |
+| Install size | browser only | gem only | ~50 MB | ~2 GB with TeX |
 
-Chromium is the only external program required. Markdown parsing,
-syntax highlighting and PDF inspection are gems, so `bundle
-install` covers them.
+Prawn is the reflexive answer in Ruby, and it is the only one here
+that needs no external program at all. But it draws rather than
+converts: every heading style, table column and page break is code
+you write and keep working. md2pdf is for when the document is
+already Markdown.
+
+Chromium is the only external program md2pdf requires. Markdown
+parsing, syntax highlighting and PDF inspection are gems, so
+`bundle install` covers them.
 
 ## Install
 
