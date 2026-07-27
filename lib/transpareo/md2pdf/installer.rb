@@ -63,8 +63,24 @@ module Transpareo
         end
 
         write_shim(target, slug)
+        verify_runs
         puts "chromium #{version} installed to #{target}"
         shim_path
+      end
+
+      # Unpacking is not installing. The archive carries no
+      # dependency closure, so on a bare server the binary lands
+      # intact and still cannot start. Reporting success here is
+      # what sends someone hunting through their own application
+      # for a fault that is ours to name.
+      def verify_runs
+        result = Dependencies.probe(shim_path)
+        return true if result[:ok]
+
+        raise UnusableDependencyError.new(
+          'chromium',
+          "chromium was downloaded but cannot start.\n  #{Dependencies.startup_problem(shim_path, result[:output])}\nInstall the libraries it needs:\n  #{Dependencies.libraries_hint}",
+        )
       end
 
       def require_slug!

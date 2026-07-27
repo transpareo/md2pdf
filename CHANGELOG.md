@@ -82,6 +82,17 @@ and a fresh `## [Unreleased]` opens above it.
 - The path printed after each render is now absolute, so it says
   where the file landed rather than leaving the reader to resolve
   it against a directory they have to guess.
+- `doctor` called a Chromium that could not start healthy. It ran
+  the binary already, to read a version, then reported `ok`
+  whether or not that worked. A downloaded build carries no
+  dependency closure, so on a bare server it dies in the dynamic
+  loader; the check now fails, names every missing shared library
+  rather than only the first the loader mentions, and prints the
+  packages that supply them.
+- `install-deps` reported success for a Chromium it had unpacked
+  but never started, which is the same fault one step earlier. It
+  now verifies the binary runs and raises
+  `UnusableDependencyError` naming the missing libraries.
 - Only the nearest `.md2pdf.yml` was read, so a project file that
   set one thing silently discarded everything its parent
   directories established, which is the opposite of what putting

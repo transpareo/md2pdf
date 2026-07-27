@@ -88,6 +88,81 @@ class DependenciesTest < Minitest::Test
     end
   end
 
+  # A file that exists and is executable is not a program that
+  # runs. A downloaded Chromium carries no dependency closure, so
+  # on a bare server it dies in the dynamic loader, and reporting
+  # that install as healthy sends people hunting elsewhere.
+
+  LOADER_ERROR = 'chrome-headless-shell: error while loading shared ' \
+                 'libraries: libXdamage.so.1: cannot open shared object file'
+
+  def test_a_binary_that_cannot_start_is_not_ok
+    with_broken_chromium do
+      row = Dependencies.chromium_status
+
+      refute row[:ok]
+      assert_match(/cannot start/, row[:problem])
+    end
+  end
+
+  def test_the_failure_names_the_cause
+    with_broken_chromium do
+      assert_match(/libXdamage/, Dependencies.chromium_status[:problem])
+    end
+  end
+
+  def test_a_broken_binary_carries_a_remedy
+    with_broken_chromium do
+      refute_empty Dependencies.chromium_status[:remedy].to_s
+    end
+  end
+
+  def test_a_missing_binary_carries_a_different_remedy
+    with_env('CHROMIUM' => '/nope', 'MD2PDF_HOME' => '/nope',
+             'PATH' => '',) do
+      row = Dependencies.chromium_status
+
+      assert_equal 'not found', row[:problem]
+      refute_empty row[:remedy].to_s
+    end
+  end
+
+  def test_no_version_is_reported_for_a_binary_that_cannot_start
+    with_broken_chromium do
+      assert_nil Dependencies.chromium_status[:version]
+    end
+  end
+
+  # The loader names only the first missing library, so fixing one
+  # reveals the next. ldd lists them together.
+  def test_every_missing_library_is_listed_not_just_the_first
+    ldd = <<~LDD
+      \tlinux-vdso.so.1 (0x00007ffd)
+      \tlibXdamage.so.1 => not found
+      \tlibc.so.6 => /usr/lib/libc.so.6 (0x00007f)
+      \tlibXfixes.so.3 => not found
+    LDD
+
+    Dependencies.stub(:capture, ldd) do
+      assert_equal %w[libXdamage.so.1 libXfixes.so.3],
+                   Dependencies.missing_libraries('/any/binary')
+    end
+  end
+
+  def test_missing_libraries_is_empty_when_ldd_is_unavailable
+    Dependencies.stub(:capture, nil) do
+      assert_empty Dependencies.missing_libraries('/any/binary')
+    end
+  end
+
+  def test_the_problem_lists_libraries_when_ldd_can_name_them
+    Dependencies.stub(:missing_libraries, %w[libA.so.1 libB.so.2]) do
+      problem = Dependencies.startup_problem('/bin/x', 'some noise')
+
+      assert_equal 'cannot start, missing libA.so.1, libB.so.2', problem
+    end
+  end
+
   def test_status_reports_every_runtime_gem
     names = Dependencies.status.map { |row| row[:name] }
 
@@ -108,5 +183,22 @@ class DependenciesTest < Minitest::Test
 
   def test_install_hint_is_never_empty
     refute_empty Dependencies.install_hint
+  end
+
+  def test_libraries_hint_is_never_empty
+    refute_empty Dependencies.libraries_hint
+  end
+
+  private
+
+  # A Chromium that exists and is executable but exits the way the
+  # dynamic loader does when a shared library is absent.
+  def with_broken_chromium
+    Dir.mktmpdir do |dir|
+      path = File.join(dir, 'chrome-headless-shell')
+      File.write(path, "#!/bin/sh\necho '#{LOADER_ERROR}' >&2\nexit 127\n")
+      File.chmod(0o755, path)
+      with_env('CHROMIUM' => path) { yield path }
+    end
   end
 end

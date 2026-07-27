@@ -29,6 +29,18 @@ module Transpareo
       end
     end
 
+    # A required binary is present but will not start, usually
+    # because a downloaded build is missing shared libraries the
+    # machine never had to provide before.
+    class UnusableDependencyError < Error
+      attr_reader :dependency
+
+      def initialize(dependency, message = nil)
+        @dependency = dependency
+        super(message || "#{dependency} cannot start")
+      end
+    end
+
     # Chromium exited non-zero, or produced no file, while rendering.
     class ConversionError < Error; end
 

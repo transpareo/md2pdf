@@ -75,6 +75,36 @@ verification since there is nothing pinned to compare against.
 Chromium is resolved from `CHROMIUM`, then the `install-deps`
 directory, then `PATH`, then the standard macOS app bundles.
 
+### On a bare server
+
+A downloaded Chromium is a binary, not an installation. Your
+distro's `chromium` package pulls in the shared libraries it needs;
+the archive from Google does not. So on a minimal server or a slim
+container, `install-deps` succeeds and the binary still cannot
+start:
+
+```
+chrome-headless-shell: error while loading shared libraries:
+libXdamage.so.1: cannot open shared object file
+```
+
+`md2pdf doctor` detects this. It starts the binary rather than
+just checking the file is there, and lists **every** missing
+library, not only the first one the loader complains about:
+
+```
+  MISS  chromium      cannot start, missing libXdamage.so.1, libXfixes.so.3
+
+chromium: cannot start, missing libXdamage.so.1, libXfixes.so.3
+  sudo apt install libnss3 libnspr4 libatk1.0-0 ...
+```
+
+`install-deps` runs the same check after unpacking and fails
+loudly rather than reporting a success you cannot use.
+
+Installing the distro package instead of downloading also solves
+it, since that brings the whole dependency closure with it.
+
 ## Usage
 
 ```sh
@@ -156,8 +186,26 @@ Transpareo::Md2pdf.convert('report.md', toc: true, locale: 'de')
 ```
 
 Returns true when the PDF was written. Missing dependencies raise
-`MissingDependencyError`, render failures raise `ConversionError`,
-and nothing in the library calls `exit`.
+`MissingDependencyError`, a dependency that will not start raises
+`UnusableDependencyError`, render failures raise `ConversionError`,
+and nothing in the library calls `exit`. All inherit from
+`Transpareo::Md2pdf::Error`, so one rescue covers the lot.
+
+**Prefer this over shelling out** if you are calling md2pdf from
+another application. The executable reports failures on stderr,
+which a host process typically discards or routes somewhere its
+own logger never sees, leaving you with an exit status and no
+cause. The exception carries the browser's own output in its
+message:
+
+```ruby
+begin
+  Transpareo::Md2pdf.convert(path)
+rescue Transpareo::Md2pdf::Error => e
+  Rails.logger.error("md2pdf: #{e.class}: #{e.message}")
+  raise
+end
+```
 
 ## What it understands
 

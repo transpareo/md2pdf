@@ -165,11 +165,17 @@ module Transpareo
         rows = Dependencies.status
         width = rows.map { |row| row[:name].length }.max
         rows.each { |row| puts doctor_line(row, width) }
-        return OK if rows.all? { |row| row[:ok] }
+        broken = rows.reject { |row| row[:ok] }
+        return OK if broken.empty?
 
-        warn "\nSome dependencies are missing."
-        warn 'Run `md2pdf install-deps`, or install manually:'
-        warn "  #{Dependencies.install_hint}"
+        # The remedy comes from the row, because a dependency that
+        # is present but cannot start needs different advice from
+        # one that is absent.
+        warn ''
+        broken.each do |row|
+          warn "#{row[:name]}: #{row[:problem]}"
+          warn "  #{row[:remedy]}" if row[:remedy]
+        end
         FAILURE
       end
 
