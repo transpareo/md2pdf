@@ -128,10 +128,14 @@ class CLITest < Minitest::Test
     assert_match(/md2pdf #{Transpareo::Md2pdf::VERSION}/, out)
   end
 
+  # These drive the no-arguments path, which now prefers stdin, so
+  # they have to claim a terminal to reach the directory glob.
   def test_run_fails_when_no_markdown_is_found
     status = nil
     Dir.mktmpdir do |dir|
-      Dir.chdir(dir) { capture_io { status = CLI.run([]) } }
+      Dir.chdir(dir) do
+        $stdin.stub(:tty?, true) { capture_io { status = CLI.run([]) } }
+      end
     end
 
     assert_equal CLI::FAILURE, status
@@ -142,7 +146,11 @@ class CLITest < Minitest::Test
     Dir.mktmpdir do |dir|
       File.write(File.join(dir, 'a.md'), '# a')
       File.write(File.join(dir, 'b.md'), '# b')
-      Dir.chdir(dir) { capture_io { status = CLI.run(%w[--open]) } }
+      Dir.chdir(dir) do
+        $stdin.stub(:tty?, true) do
+          capture_io { status = CLI.run(%w[--open]) }
+        end
+      end
     end
 
     assert_equal CLI::USAGE_ERROR, status
@@ -156,6 +164,45 @@ class CLITest < Minitest::Test
         assert_equal %w[a.md b.md], CLI.expand_args(['*.md'])
       end
     end
+  end
+
+  # Piped input must beat the directory glob. Globbing here would
+  # convert an unrelated document and report success, discarding
+  # what the user actually piped in.
+  def test_expand_args_prefers_stdin_when_input_is_piped
+    Dir.mktmpdir do |dir|
+      File.write(File.join(dir, 'unrelated.md'), '# other')
+      Dir.chdir(dir) do
+        $stdin.stub(:tty?, false) do
+          assert_equal ['-'], CLI.expand_args([])
+        end
+      end
+    end
+  end
+
+  def test_expand_args_globs_when_stdin_is_a_terminal
+    Dir.mktmpdir do |dir|
+      File.write(File.join(dir, 'a.md'), '# a')
+      Dir.chdir(dir) do
+        $stdin.stub(:tty?, true) do
+          assert_equal %w[a.md], CLI.expand_args([])
+        end
+      end
+    end
+  end
+
+  def test_filter_markdown_keeps_the_stdin_marker
+    assert_equal ['-'], CLI.filter_markdown(['-'])
+  end
+
+  def test_convert_stdin_refuses_when_stdin_is_a_terminal
+    result = nil
+    _, err = capture_io do
+      $stdin.stub(:tty?, true) { result = CLI.convert_stdin({}) }
+    end
+
+    refute result
+    assert_match(/no input on stdin/, err)
   end
 
   def test_expand_args_warns_when_a_glob_matches_nothing

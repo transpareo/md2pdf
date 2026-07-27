@@ -6,6 +6,7 @@ class FiltersTest < Minitest::Test
   include TestSupport
 
   Filters = Transpareo::Md2pdf::Filters
+  Document = Transpareo::Md2pdf::Document
 
   # A 10x10 PNG, small enough to keep the assertions about encoding
   # rather than about size.
@@ -161,6 +162,27 @@ class FiltersTest < Minitest::Test
 
   def test_escapes_html_in_inline_code
     assert_includes render_html("`<script>`\n"), '&lt;script&gt;'
+  end
+
+  # Document title
+
+  def test_title_of_reads_the_first_heading
+    assert_equal 'Hello', Document.title_of("# Hello\n\nbody\n")
+  end
+
+  def test_title_of_reduces_inline_markup_to_text
+    title = Document.title_of("# A `code` and *emphasis*\n")
+
+    assert_equal 'A code and emphasis', title
+  end
+
+  def test_title_of_reads_a_setext_heading
+    assert_equal 'Underlined', Document.title_of("Underlined\n===\n")
+  end
+
+  def test_title_of_is_nil_without_a_heading
+    assert_nil Document.title_of("just a paragraph\n")
+    assert_nil Document.title_of("## Only a subheading\n")
   end
 
   # Images

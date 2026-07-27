@@ -90,6 +90,35 @@ md2pdf --no-toc file.md    # skip the TOC
 PDFs are written next to their inputs unless `--output` or
 `--output-dir` says otherwise.
 
+### Reading from a pipe
+
+`-` means standard input, and it is assumed when nothing else is
+named and stdin is not a terminal:
+
+```sh
+cat report.md | md2pdf - > report.pdf
+md2pdf < report.md > report.pdf
+pandoc -t gfm notes.docx | md2pdf - --output=notes.pdf
+./generate-report.sh | md2pdf - > report.pdf
+```
+
+With no destination the PDF goes to stdout, since there is no input
+filename to sit next to. Progress messages go to stderr in that
+mode so they cannot land inside the document. `--output` or
+`--output-dir` writes a file instead, and md2pdf refuses to spray
+PDF bytes at a terminal.
+
+Front matter in piped input is honoured exactly as it is in a file.
+Relative image paths resolve against the working directory, and the
+config search starts there too. Since there is no filename, the
+locale cannot be auto-detected.
+
+With `--output-dir` but no `--output`, the file is named after the
+document's first heading, reduced to something safe to put in a
+path: `# Q3/Q4 Results` yields `Q3-Q4-Results.pdf` rather than
+creating a `Q3/` directory. Pass `--output` when you want to choose
+the name yourself.
+
 ### As a library
 
 ```ruby
@@ -299,9 +328,35 @@ each file it writes.
 | Flag | Config key | Default | Description |
 |---|---|---|---|
 | `--logo=PATH` | `logo` | none | SVG logo. The footer version is derived from the same file in grey, so one asset covers both |
+| `--footer-title=TEXT` | `footer-title` | the document's H1 | Running text centred in the footer, between the logo and the page number. `""` removes it |
 | `--no-header-logo` | `header-logo: false` | shown | Hide the first-page logo |
 | `--no-footer-logo` | `footer-logo: false` | shown | Hide the per-page footer logo |
 | `--no-page-numbers` | `page-numbers: false` | shown | Hide the page counter |
+
+The footer has three slots: the logo on the left, the title in the
+centre, and the page counter on the right. Each is independent, so
+any combination works.
+
+**The centre slot carries the document's own title by default**,
+read from its first H1 after parsing, so a setext heading works and
+inline markup is reduced to plain text. Override it when the
+heading is too long for a running footer, or when the PDF should
+carry a project name rather than a document name:
+
+```yaml
+footer-title: Quarterly Platform Report
+```
+
+Pass an empty string to remove it, which also matches the previous
+behaviour of no centre slot at all:
+
+```sh
+md2pdf --footer-title="" report.md
+```
+
+A document with no H1 gets no footer title. Keep overrides short:
+the centre slot sizes to its content, so a long title runs into the
+logo or the page number rather than wrapping or truncating.
 
 **md2pdf ships no logo and renders unbranded out of the box.** The
 Transpareo mark on the sample pages above is exactly that: a

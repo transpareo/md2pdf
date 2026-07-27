@@ -30,6 +30,15 @@ First release as a gem.
   `<div class="warning">`, so `--custom-css` can style callouts,
   admonitions and pull quotes. `::: intro` keeps its special
   meaning for the title page.
+- Standard input. `-` names stdin and is assumed when nothing else
+  is given and stdin is not a terminal. Without `--output` the PDF
+  goes to stdout, with progress on stderr so it cannot land inside
+  the document, and md2pdf refuses to write PDF bytes to a
+  terminal. Front matter in piped input is honoured as usual.
+- A running footer title, centred between the logo and the page
+  number. It carries the document's own H1 by default, is
+  overridden with `--footer-title` or `footer-title:`, and is
+  removed by passing an empty string.
 - `MD2PDF_OPENER` overrides the viewer `--open` launches, and may
   carry arguments.
 - `--version` flag.
@@ -62,6 +71,19 @@ First release as a gem.
 - The path printed after each render is now absolute, so it says
   where the file landed rather than leaving the reader to resolve
   it against a directory they have to guess.
+- A filename derived from a piped document's heading is reduced to
+  a safe path component. A heading containing a slash created
+  directories, one containing `..` wrote outside `--output-dir`
+  altogether, and one starting with a dot produced a hidden file,
+  all silently and with a zero exit status.
+- Piping a document while the working directory contained any
+  `.md` file silently converted that unrelated file and reported
+  success, discarding the piped input. Piped input now wins over
+  the directory glob.
+- Input is read as UTF-8 rather than in the locale's encoding. The
+  markdown parser accepts only UTF-8, so under `LANG=C` every
+  document failed with a type error from inside the parser. Invalid
+  bytes are now scrubbed with a warning instead of crashing.
 - `--open` hardcoded `xdg-open`, so it warned and did nothing on
   macOS, a platform this gem ships Chromium builds for. It now uses
   `open` on macOS, `xdg-open` on Linux and `start` on Windows.

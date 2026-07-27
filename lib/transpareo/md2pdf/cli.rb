@@ -16,6 +16,7 @@ module Transpareo
           md2pdf *.md                # all .md in current dir
           md2pdf 'docs/*.md'         # globs are expanded internally
           md2pdf                     # same as md2pdf *.md
+          cat f.md | md2pdf - > f.pdf   # read stdin, write stdout
           md2pdf --flat file.md      # only H1 rendered as heading
           md2pdf --unwrap file.md    # join hard-wrapped paragraphs
           md2pdf --no-toc file.md    # skip the TOC
@@ -63,6 +64,10 @@ module Transpareo
 
         Branding:
           --logo=PATH            Logo SVG. Footer auto-derives in grey.
+          --footer-title=TEXT    Running text centred in the footer,
+                                 between the logo and page number.
+                                 Defaults to the document's H1.
+                                 Pass "" to remove it.
           --no-header-logo       Hide first-page header logo.
           --no-footer-logo       Hide footer logo.
           --no-page-numbers      Hide page numbers.
@@ -80,6 +85,10 @@ module Transpareo
 
         Output PDFs are placed next to the input files unless
         --output or --output-dir is given.
+
+        A file argument of "-" reads standard input, and is assumed
+        when nothing is named and stdin is not a terminal. Without
+        a destination the PDF is written to stdout.
       HELP
 
       # A symbol sets that key true, a pair sets it to the given
@@ -113,6 +122,7 @@ module Transpareo
         '--output' => :output,
         '--output-dir' => :output_dir,
         '--logo' => :logo,
+        '--footer-title' => :footer_title,
         '--link-color' => :link_color,
         '--custom-css' => :custom_css
       }.freeze
@@ -258,7 +268,12 @@ module Transpareo
       # Defaults to *.md in the current directory when nothing was
       # given, and expands globs internally so a quoted argument
       # like 'docs/*.md' behaves like a shell-expanded one.
+      #
+      # Piped input takes precedence over that default: globbing the
+      # directory when someone pipes a document would convert an
+      # unrelated file and report success.
       def expand_args(args)
+        return [Runner::STDIN_MARKER] if args.empty? && !$stdin.tty?
         return Dir.glob('*.md') if args.empty?
 
         args.flat_map do |arg|
@@ -272,7 +287,7 @@ module Transpareo
 
       def filter_markdown(files)
         md, other = files.partition do |path|
-          File.extname(path).downcase == '.md'
+          path == Runner::STDIN_MARKER || File.extname(path).downcase == '.md'
         end
         other.each do |path|
           warn "md2pdf: not a markdown file (skipping): #{path}"
@@ -281,7 +296,23 @@ module Transpareo
       end
 
       def convert_one(path, cli_opts)
+        return convert_stdin(cli_opts) if path == Runner::STDIN_MARKER
+
         Runner.convert(path, **Md2pdf.settings(path, cli_opts))
+      end
+
+      # stdin can only be read once, so the text is read here and
+      # handed both to the settings resolver, which needs its front
+      # matter, and to the renderer.
+      def convert_stdin(cli_opts)
+        if $stdin.tty?
+          warn 'md2pdf: no input on stdin'
+          return false
+        end
+
+        text = Runner.as_utf8($stdin.read)
+        settings = Md2pdf.settings(Runner::STDIN_MARKER, cli_opts, text)
+        Runner.convert(Runner::STDIN_MARKER, **settings, source_text: text)
       end
 
       def assign(opts, key, value)

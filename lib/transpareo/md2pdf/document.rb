@@ -21,6 +21,20 @@ module Transpareo
         new(Markdown.to_html(text), **options)
       end
 
+      # The document's own title, taken from its first H1. Read
+      # after parsing rather than by matching `# ` on the source, so
+      # setext headings work and inline markup is reduced to text.
+      # Returns nil when the document has no H1.
+      def self.title_of(markdown)
+        heading = Nokogiri::HTML5
+          .fragment(Markdown.to_html(markdown))
+          .at_css('h1')
+        return nil unless heading
+
+        text = heading.text.gsub(/\s+/, ' ').strip
+        text.empty? ? nil : text
+      end
+
       def [](key)
         @options[key]
       end

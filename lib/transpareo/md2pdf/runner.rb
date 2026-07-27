@@ -19,6 +19,13 @@ module Transpareo
       TOC_MIN_H2 = 3
       TOC_MIN_WORDS = 1500
 
+      # The conventional name for standard input as a file argument.
+      STDIN_MARKER = '-'
+
+      # Filesystems stop well short of this, and a heading long
+      # enough to hit it was never meant to be a filename.
+      MAX_BASENAME = 80
+
       CHROMIUM_ARGS = %w[
         --headless=new
         --disable-gpu
@@ -38,43 +45,133 @@ module Transpareo
 
       module_function
 
-      # Returns true when a PDF was written. Named as a command
-      # rather than a predicate because writing the file is the
-      # point; the boolean is just the outcome.
+      # These are commands rather than predicates: producing the PDF
+      # is the point and the boolean is just the outcome.
       # rubocop:disable Naming/PredicateMethod
+
+      # Returns true when a PDF was written.
       def convert(md_path, flat:, unwrap:, toc: false, toc_depth: 2,
                   toc_label: nil, toc_min: TOC_MIN_H2,
                   toc_min_words: TOC_MIN_WORDS,
                   footnotes_label: nil, locale: nil,
                   output: nil, output_dir: nil, open: false,
-                  style: {})
-        unless File.exist?(md_path)
-          warn "md2pdf: not found: #{md_path}"
-          return false
-        end
+                  style: {}, source_text: nil)
+        source = source_text || read_file(md_path)
+        return false unless source
 
-        basename = File.basename(md_path, '.md')
-        pdf_path = output_path(md_path, basename, output, output_dir)
-        FileUtils.mkdir_p(File.dirname(pdf_path))
-
-        text = Config.strip_front_matter(File.read(md_path))
+        text = Config.strip_front_matter(source)
         text = Unwrap.call(text) if unwrap
         toc &&= h2_count(text) >= toc_min &&
                 word_count(text) >= toc_min_words
 
-        render(text, pdf_path, {
-                 flat: flat, toc: toc, toc_depth: toc_depth,
-                 toc_label: toc_label, footnotes_label: footnotes_label,
-                 locale: locale, basename: basename,
-                 base_dir: File.dirname(File.expand_path(md_path)),
-                 css: Style.build(**style)
-               })
+        basename = basename_for(md_path, text)
+        options = {
+          flat: flat, toc: toc, toc_depth: toc_depth,
+          toc_label: toc_label, footnotes_label: footnotes_label,
+          locale: locale, basename: basename,
+          base_dir: base_dir_for(md_path),
+          css: Style.build(**with_footer_title(style, text))
+        }
 
+        if to_stdout?(md_path, output, output_dir)
+          emit(text, options)
+        else
+          write(text, options, md_path, basename, output, output_dir, open)
+        end
+      end
+
+      def read_file(md_path)
+        return as_utf8(File.read(md_path, encoding: 'UTF-8')) if
+          File.exist?(md_path)
+
+        warn "md2pdf: not found: #{md_path}"
+        nil
+      end
+
+      # The markdown parser only accepts UTF-8, while Ruby tags what
+      # it reads with the locale's encoding. Without this, a machine
+      # running under LANG=C fails on any document at all.
+      def as_utf8(text)
+        text = text.dup.force_encoding(Encoding::UTF_8)
+        return text if text.valid_encoding?
+
+        warn 'md2pdf: input is not valid UTF-8, replacing bad bytes'
+        text.scrub
+      end
+
+      def write(text, options, md_path, basename, output, output_dir, open)
+        pdf_path = output_path(md_path, basename, output, output_dir)
+        FileUtils.mkdir_p(File.dirname(pdf_path))
+        render(text, pdf_path, options)
         report(pdf_path)
         open_pdf(pdf_path) if open
         true
       end
+
+      # Streams the PDF to stdout. Progress goes to stderr here, or
+      # it would land in the middle of the document being piped.
+      def emit(text, options)
+        if $stdout.tty?
+          warn 'md2pdf: refusing to write a PDF to the terminal. ' \
+               'Redirect stdout or pass --output.'
+          return false
+        end
+
+        Dir.mktmpdir('md2pdf-out') do |dir|
+          pdf_path = File.join(dir, 'stdout.pdf')
+          render(text, pdf_path, options)
+          warn "md2pdf: #{File.size(pdf_path)} bytes to stdout"
+          $stdout.binmode
+          $stdout.write(File.binread(pdf_path))
+        end
+        true
+      end
       # rubocop:enable Naming/PredicateMethod
+
+      # Reading from stdin leaves nothing to name the file after, so
+      # the PDF goes to stdout unless a destination was given.
+      def to_stdout?(md_path, output, output_dir)
+        md_path == STDIN_MARKER && output.nil? && output_dir.nil?
+      end
+
+      def basename_for(md_path, text)
+        return File.basename(md_path, '.md') unless md_path == STDIN_MARKER
+
+        safe_basename(Document.title_of(text))
+      end
+
+      # A heading from piped input becomes a filename here, so it is
+      # reduced to something that can only ever name a file in the
+      # target directory. Left alone, a title containing a slash
+      # creates directories and one containing `..` writes outside
+      # the output directory entirely.
+      def safe_basename(title)
+        name = title.to_s
+          .gsub(%r{[/\\]}, '-')
+          .gsub(/[^\p{Word}\s.-]/u, '')
+          .gsub(/\s+/, '-')
+          .squeeze('-.')
+          .sub(/\A[.-]+/, '')
+          .sub(/[.-]+\z/, '')
+          .slice(0, MAX_BASENAME).to_s
+        name.empty? ? 'document' : name
+      end
+
+      def base_dir_for(md_path)
+        return Dir.pwd if md_path == STDIN_MARKER
+
+        File.dirname(File.expand_path(md_path))
+      end
+
+      # The footer carries the document's own title unless one was
+      # given. An explicit empty string is a deliberate opt-out and
+      # is left alone, which is why this tests for the key rather
+      # than for a truthy value.
+      def with_footer_title(style, text)
+        return style if style.key?(:footer_title)
+
+        style.merge(footer_title: Document.title_of(text))
+      end
 
       # Runs the second pass only when the first actually produced
       # destinations to resolve.
@@ -134,7 +231,7 @@ module Transpareo
       def output_path(md_path, basename, output, output_dir)
         return File.expand_path(output) if output
 
-        dir = output_dir || File.dirname(File.expand_path(md_path))
+        dir = output_dir || base_dir_for(md_path)
         File.expand_path("#{basename}.pdf", dir)
       end
 

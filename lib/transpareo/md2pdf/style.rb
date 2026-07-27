@@ -33,7 +33,8 @@ module Transpareo
         footer_logo: true,
         page_numbers: true,
         logo: nil,
-        custom_css: nil
+        custom_css: nil,
+        footer_title: nil
       }.freeze
 
       # Keys the ERB template reads straight off the config.
@@ -57,8 +58,19 @@ module Transpareo
         cfg.slice(*PASSTHROUGH_KEYS).merge(
           header_uri: header_uri(cfg, logo),
           footer_uri: footer_uri(cfg, logo),
+          footer_title: css_string(cfg[:footer_title]),
           custom_css: read_custom_css(cfg[:custom_css])
         )
+      end
+
+      # Quotes a value for a CSS `content` property. Returns nil for
+      # anything blank so the template can omit the box entirely.
+      # Newlines are folded because a margin box is a single line.
+      def css_string(value)
+        text = value.to_s.gsub(/\s+/, ' ').strip
+        return nil if text.empty?
+
+        %("#{text.gsub(/[\\"]/) { |char| "\\#{char}" }}")
       end
 
       def header_uri(cfg, logo)

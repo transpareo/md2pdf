@@ -27,7 +27,7 @@ module Transpareo
     STYLE_KEYS = %i[
       font_size line_height font_family code_font_family
       page_size margins logo link_color custom_css
-      header_logo footer_logo page_numbers
+      header_logo footer_logo page_numbers footer_title
     ].freeze
 
     module_function
@@ -44,8 +44,8 @@ module Transpareo
     #
     # The CLI goes through this too, so a flag, a config key and a
     # library argument all produce the same document.
-    def settings(md_path, options = {})
-      cfg = Config.resolve(md_path, options)
+    def settings(md_path, options = {}, text = nil)
+      cfg = Config.resolve(md_path, options, text)
       custom = cfg[:locales]
       locale = cfg[:locale] || Locales.detect(md_path, custom) || 'en'
       labels = Locales.defaults_for(locale, custom)

@@ -107,6 +107,149 @@ class RunnerTest < Minitest::Test
     assert_match(/MD2PDF_OPENER/, err)
   end
 
+  # Standard input
+
+  def test_stdin_defaults_to_writing_the_pdf_to_stdout
+    assert Runner.to_stdout?('-', nil, nil)
+  end
+
+  def test_an_explicit_destination_beats_stdout
+    refute Runner.to_stdout?('-', '/tmp/x.pdf', nil)
+    refute Runner.to_stdout?('-', nil, '/tmp/out')
+  end
+
+  def test_a_named_file_never_goes_to_stdout
+    refute Runner.to_stdout?('doc.md', nil, nil)
+  end
+
+  # There is no filename to derive one from, so the heading names
+  # the document instead.
+  def test_stdin_names_the_document_after_its_heading
+    assert_equal 'Piped', Runner.basename_for('-', "# Piped\n")
+    assert_equal 'document', Runner.basename_for('-', "no heading\n")
+  end
+
+  # That heading is untrusted input on its way to a filesystem path.
+
+  def test_a_heading_cannot_create_directories
+    assert_equal 'Q3-Q4-Report', Runner.safe_basename('Q3/Q4 Report')
+    assert_equal 'a-b', Runner.safe_basename('a\\b')
+  end
+
+  def test_a_heading_cannot_escape_the_output_directory
+    %w[../../escaped ../.. .. ./x].each do |attempt|
+      name = Runner.safe_basename(attempt)
+
+      refute_includes name, '/'
+      refute_includes name, '..'
+      refute name.start_with?('.'), "#{name.inspect} is a hidden file"
+    end
+  end
+
+  def test_a_heading_cannot_produce_a_hidden_file
+    refute Runner.safe_basename('.hidden').start_with?('.')
+    assert_equal 'document', Runner.safe_basename('...')
+  end
+
+  def test_spaces_become_dashes_so_the_name_is_shell_friendly
+    assert_equal 'Quarterly-Report', Runner.safe_basename('Quarterly Report')
+  end
+
+  def test_punctuation_is_dropped_from_the_name
+    assert_equal 'What-Now', Runner.safe_basename('What? "Now"!')
+  end
+
+  def test_a_very_long_heading_is_truncated
+    assert_operator Runner.safe_basename('x' * 500).length, :<=,
+                    Runner::MAX_BASENAME
+  end
+
+  def test_an_unusable_heading_falls_back_to_a_generic_name
+    assert_equal 'document', Runner.safe_basename('///')
+    assert_equal 'document', Runner.safe_basename('')
+    assert_equal 'document', Runner.safe_basename(nil)
+  end
+
+  def test_non_ascii_headings_are_kept
+    assert_equal 'Grüße-und-Berichte',
+                 Runner.safe_basename('Grüße und Berichte')
+  end
+
+  def test_a_named_file_keeps_its_own_basename
+    assert_equal 'report', Runner.basename_for('a/report.md', "# X\n")
+  end
+
+  def test_stdin_resolves_relative_assets_against_the_cwd
+    assert_equal Dir.pwd, Runner.base_dir_for('-')
+  end
+
+  def test_refuses_to_write_a_pdf_to_the_terminal
+    result = nil
+    _, err = capture_io do
+      $stdout.stub(:tty?, true) { result = Runner.emit('# x', {}) }
+    end
+
+    refute result
+    assert_match(/refusing to write a PDF to the terminal/, err)
+  end
+
+  # Encoding
+
+  # commonmarker only accepts UTF-8, and Ruby tags what it reads
+  # with the locale's encoding, so a LANG=C machine would otherwise
+  # fail on every document.
+  def test_retags_ascii_input_as_utf8
+    text = Runner.as_utf8('# Title'.dup.force_encoding('US-ASCII'))
+
+    assert_equal Encoding::UTF_8, text.encoding
+  end
+
+  def test_keeps_valid_utf8_intact
+    assert_equal 'Grüße', Runner.as_utf8('Grüße')
+  end
+
+  def test_scrubs_invalid_bytes_rather_than_crashing
+    result = nil
+    _, err = capture_io do
+      result = Runner.as_utf8("bad \xFF byte".dup.force_encoding('BINARY'))
+    end
+
+    assert_predicate result, :valid_encoding?
+    assert_match(/not valid UTF-8/, err)
+  end
+
+  # Footer title
+
+  def test_footer_defaults_to_the_document_title
+    style = Runner.with_footer_title({}, "# Quarterly Report\n\nx\n")
+
+    assert_equal 'Quarterly Report', style[:footer_title]
+  end
+
+  def test_an_explicit_footer_title_wins
+    style = Runner.with_footer_title(
+      { footer_title: 'Custom' }, "# Quarterly Report\n"
+    )
+
+    assert_equal 'Custom', style[:footer_title]
+  end
+
+  # An empty string is how a caller says "no footer title", so it
+  # must not be mistaken for "unset" and refilled from the heading.
+  def test_an_explicit_empty_footer_title_is_respected
+    style = Runner.with_footer_title(
+      { footer_title: '' }, "# Quarterly Report\n"
+    )
+
+    assert_equal '', style[:footer_title]
+  end
+
+  def test_footer_title_is_nil_without_a_heading
+    style = Runner.with_footer_title({}, "just a paragraph\n")
+
+    assert_nil style[:footer_title]
+  end
+
   def test_build_html_wraps_body_in_a_document
     html = Runner.build_html(
       "# Title\n\ntext\n",

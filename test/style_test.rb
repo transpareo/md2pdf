@@ -76,6 +76,37 @@ class StyleTest < Minitest::Test
     assert_match(/custom CSS not found/, err)
   end
 
+  # Footer title
+
+  def test_no_footer_title_box_by_default
+    css = with_env('MD2PDF_LOGO' => nil) { Style.build }
+
+    refute_includes css, '@bottom-center'
+  end
+
+  def test_renders_a_footer_title_between_logo_and_page_number
+    css = with_env('MD2PDF_LOGO' => nil) do
+      Style.build(footer_title: 'Quarterly Report')
+    end
+
+    assert_includes css, '@bottom-center'
+    assert_includes css, 'content: "Quarterly Report";'
+  end
+
+  def test_footer_title_escapes_quotes_and_backslashes
+    assert_equal '"a \\"b\\" c"', Style.css_string('a "b" c')
+    assert_equal '"a \\\\ b"', Style.css_string('a \\ b')
+  end
+
+  def test_footer_title_folds_newlines_onto_one_line
+    assert_equal '"one two"', Style.css_string("one\n  two")
+  end
+
+  def test_blank_footer_title_is_treated_as_absent
+    assert_nil Style.css_string('   ')
+    assert_nil Style.css_string(nil)
+  end
+
   def test_footer_logo_is_recoloured_to_grey
     recoloured = Style.recolor_svg(SVG, '#666')
 

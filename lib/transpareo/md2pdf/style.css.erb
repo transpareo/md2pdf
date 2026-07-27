@@ -46,6 +46,15 @@
     vertical-align: middle;
   }
   <%- end -%>
+  <%- if footer_title -%>
+  @bottom-center {
+    content: <%= footer_title %>;
+    font-family: <%= font_family %>;
+    font-size: 9pt;
+    color: #666;
+    vertical-align: middle;
+  }
+  <%- end -%>
   <%- if page_numbers -%>
   @bottom-right {
     content: counter(page) " / " counter(pages);

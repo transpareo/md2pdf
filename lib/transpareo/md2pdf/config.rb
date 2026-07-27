@@ -20,7 +20,7 @@ module Transpareo
         font_size line_height font_family code_font_family
         page_size margins
         output output_dir
-        logo header_logo footer_logo page_numbers
+        logo header_logo footer_logo page_numbers footer_title
         link_color custom_css
       ].freeze
 
@@ -34,11 +34,14 @@ module Transpareo
       # Resolve effective settings for a given input file. Precedence
       # (highest -> lowest): CLI -> YAML front-matter -> .md2pdf.yml
       # walked up from the input's directory.
-      def resolve(md_path, cli_opts)
+      # `text` is supplied when the document did not come from a
+      # file, since stdin can only be read once and its front matter
+      # still has to configure the render.
+      def resolve(md_path, cli_opts, text = nil)
         base_dir = File.dirname(File.expand_path(md_path))
         config_path = find_config_file(base_dir)
         file_config = load_config_file(config_path)
-        text = File.exist?(md_path) ? File.read(md_path) : ''
+        text ||= File.exist?(md_path) ? File.read(md_path) : ''
         front_matter = load_front_matter(text)
 
         # A path is relative to whatever declared it, so a config
