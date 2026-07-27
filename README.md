@@ -75,6 +75,28 @@ verification since there is nothing pinned to compare against.
 Chromium is resolved from `CHROMIUM`, then the `install-deps`
 directory, then `PATH`, then the standard macOS app bundles.
 
+### Which Chromium you use changes the output
+
+The browser lays the document out, so its version is part of the
+rendering. Two machines on different Chromium builds produce
+slightly different PDFs from the same markdown: a paragraph that
+fit on one page may run onto the next, and the page count with it.
+Nothing is wrong when that happens, and the stylesheet is not the
+cause.
+
+That is the argument for `install-deps`. A pinned build renders
+identically everywhere it is installed, which matters when a PDF
+is a deliverable rather than a preview. **Note that installing it
+also changes what your machine renders with**, since the managed
+build outranks anything on `PATH`. `md2pdf doctor` prints the
+version and path actually in use.
+
+To keep using the system browser after installing, name it:
+
+```sh
+CHROMIUM=/usr/bin/chromium md2pdf report.md
+```
+
 ### On a bare server
 
 A downloaded Chromium is a binary, not an installation. Your

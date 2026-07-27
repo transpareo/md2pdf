@@ -29,6 +29,9 @@ module Transpareo
         chrome
       ].freeze
 
+      # Enough of a file to see a shebang and the line after it.
+      SHIM_PROBE_BYTES = 512
+
       MACOS_APP_PATHS = [
         '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
         '/Applications/Chromium.app/Contents/MacOS/Chromium',
@@ -136,12 +139,27 @@ module Transpareo
       # find, so fixing one reveals the next. ldd lists them all at
       # once, which turns several rounds of this into one.
       def missing_libraries(path)
-        out = capture('ldd', path)
+        out = capture('ldd', real_binary(path))
         return [] unless out
 
         out.lines
           .filter_map { |line| line[/^\s*(\S+)\s*=>\s*not found/, 1] }
           .uniq
+      end
+
+      # A managed Chromium is reached through a shim, and ldd has
+      # nothing to say about a shell script: it answers "not a
+      # dynamic executable" and the caller falls back to the
+      # loader's message, which names one library at a time. Ask
+      # about the program the shim runs instead.
+      def real_binary(path)
+        head = File.read(path, SHIM_PROBE_BYTES).to_s
+        return path unless head.start_with?('#!')
+
+        target = head[/^exec\s+"([^"]+)"/, 1]
+        target && File.file?(target) ? target : path
+      rescue SystemCallError, ArgumentError
+        path
       end
 
       # ldd gives the complete list. Where it is unavailable, the

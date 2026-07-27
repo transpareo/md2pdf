@@ -4,6 +4,7 @@ require_relative 'test_helper'
 
 class CLITest < Minitest::Test
   CLI = Transpareo::Md2pdf::CLI
+  Installer = Transpareo::Md2pdf::Installer
 
   def test_assign_toc_depth_also_enables_toc
     opts = {}
@@ -247,6 +248,76 @@ class CLITest < Minitest::Test
     undocumented = keys.reject { |key| readme.include?(key) }
 
     assert_empty undocumented, "not in README: #{undocumented.inspect}"
+  end
+
+  # A subcommand that ignores what it does not recognise turns a
+  # typo, or an ordinary request for help, into a download.
+
+  def test_install_deps_help_does_not_install
+    installed = false
+    status = nil
+    out, = capture_io do
+      Installer.stub(:install, ->(**_kw) { installed = true }) do
+        status = CLI.run(%w[install-deps --help])
+      end
+    end
+
+    refute installed
+    assert_equal CLI::OK, status
+    assert_match(/Usage: md2pdf install-deps/, out)
+  end
+
+  def test_install_deps_short_help_does_not_install
+    installed = false
+    capture_io do
+      Installer.stub(:install, ->(**_kw) { installed = true }) do
+        CLI.run(%w[install-deps -h])
+      end
+    end
+
+    refute installed
+  end
+
+  def test_an_unknown_install_deps_flag_refuses_to_run
+    installed = false
+    status = nil
+    _, err = capture_io do
+      Installer.stub(:install, ->(**_kw) { installed = true }) do
+        status = CLI.run(%w[install-deps --nonsense])
+      end
+    end
+
+    refute installed
+    assert_equal CLI::USAGE_ERROR, status
+    assert_match(/unknown option: --nonsense/, err)
+  end
+
+  def test_a_recognised_install_deps_flag_still_runs
+    passed = nil
+    capture_io do
+      Installer.stub(:install, ->(**kw) { passed = kw }) do
+        CLI.run(%w[install-deps --latest])
+      end
+    end
+
+    assert passed[:latest]
+  end
+
+  def test_doctor_help_does_not_run_the_checks
+    status = nil
+    out, = capture_io { status = CLI.run(%w[doctor --help]) }
+
+    assert_equal CLI::OK, status
+    assert_match(/Usage: md2pdf doctor/, out)
+    refute_match(/chromium/, out)
+  end
+
+  def test_doctor_takes_no_options
+    status = nil
+    _, err = capture_io { status = CLI.run(%w[doctor --latest]) }
+
+    assert_equal CLI::USAGE_ERROR, status
+    assert_match(/unknown option/, err)
   end
 
   def test_doctor_line_marks_missing_dependencies

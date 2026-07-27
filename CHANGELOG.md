@@ -82,6 +82,12 @@ and a fresh `## [Unreleased]` opens above it.
 - The path printed after each render is now absolute, so it says
   where the file landed rather than leaving the reader to resolve
   it against a directory they have to guess.
+- `md2pdf install-deps --help` downloaded Chromium. Subcommands
+  ignored arguments they did not recognise, so a request for help,
+  or any typo, silently fetched a hundred and twenty megabytes and
+  changed which browser the machine renders with. `doctor` and
+  `install-deps` now answer `--help`, reject unknown options with
+  a usage error, and do nothing in either case.
 - `doctor` called a Chromium that could not start healthy. It ran
   the binary already, to read a version, then reported `ok`
   whether or not that worked. A downloaded build carries no
@@ -97,6 +103,16 @@ and a fresh `## [Unreleased]` opens above it.
   of packages the machine mostly already has. It now names the
   packages for the libraries actually missing, so two absent
   libraries produce `sudo apt install libxdamage1 libxfixes3`.
+- Those libraries were reported one per run. `ldd` was asked about
+  the shim that install-deps writes, and `ldd` says only "not a
+  dynamic executable" about a shell script, so the report fell
+  back to the loader's message, which names a single library. It
+  now asks about the program the shim runs, which is what listing
+  them together depends on.
+- The table of contents inherited the body leading, which is set
+  generously for prose. A long contents therefore ran onto a
+  second page and stranded its last entry there. It is now set
+  tighter, as an index conventionally is.
 - Ubuntu was told to `apt install chromium`, which does not exist
   there. Its `chromium-browser` is a transitional package pulling
   in snapd and a confined browser that cannot read the temporary

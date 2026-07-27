@@ -218,6 +218,11 @@ nav#TOC ul.toc-list {
   list-style: none;
   padding: 0;
   margin: 0;
+  /* An index is set tighter than prose. Inheriting the body
+     leading, which is generous by design for paragraphs, spreads
+     one-line entries far enough apart to push a long contents
+     onto a second page and strand the last entry there. */
+  line-height: 1.4;
 }
 nav#TOC ul.toc-list li {
   margin: 0.5em 0;

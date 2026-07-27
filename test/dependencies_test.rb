@@ -156,6 +156,44 @@ class DependenciesTest < Minitest::Test
     end
   end
 
+  # The managed Chromium is reached through a shim. ldd answers
+  # "not a dynamic executable" for a shell script, which sent the
+  # caller back to the loader's message and its one library at a
+  # time, the exact round trip ldd is here to avoid.
+  def test_a_shim_resolves_to_the_program_it_runs
+    with_shim do |shim, real|
+      assert_equal real, Dependencies.real_binary(shim)
+    end
+  end
+
+  def test_ldd_is_asked_about_the_real_binary_not_the_shim
+    with_shim do |shim, real|
+      asked = nil
+      Dependencies.stub(:capture, lambda { |_cmd, path|
+        asked = path
+        nil
+      },) do
+        Dependencies.missing_libraries(shim)
+      end
+
+      assert_equal real, asked
+    end
+  end
+
+  def test_a_plain_binary_is_used_as_given
+    assert_equal '/usr/bin/chromium',
+                 Dependencies.real_binary('/usr/bin/chromium')
+  end
+
+  def test_a_shim_pointing_at_nothing_falls_back_to_itself
+    Dir.mktmpdir do |dir|
+      shim = File.join(dir, 'shim')
+      File.write(shim, %(#!/bin/sh\nexec "/gone/missing" "$@"\n))
+
+      assert_equal shim, Dependencies.real_binary(shim)
+    end
+  end
+
   def test_the_problem_lists_libraries_when_ldd_can_name_them
     Dependencies.stub(:missing_libraries, %w[libA.so.1 libB.so.2]) do
       problem = Dependencies.startup_problem('/bin/x', 'some noise')
@@ -306,6 +344,19 @@ class DependenciesTest < Minitest::Test
   end
 
   private
+
+  # The shape install-deps writes: a shell script that execs the
+  # unpacked binary in place.
+  def with_shim
+    Dir.mktmpdir do |dir|
+      real = File.join(dir, 'chrome-headless-shell')
+      File.write(real, "binary\n")
+      shim = File.join(dir, 'shim')
+      File.write(shim, %(#!/bin/sh\nexec "#{real}" "$@"\n))
+      File.chmod(0o755, shim)
+      yield shim, real
+    end
+  end
 
   # A Chromium that exists and is executable but exits the way the
   # dynamic loader does when a shared library is absent.

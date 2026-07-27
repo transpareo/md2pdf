@@ -140,6 +140,45 @@ module Transpareo
         '--custom-css' => :custom_css,
       }.freeze
 
+      HELP_FLAGS = %w[-h --help].freeze
+
+      DOCTOR_HELP = <<~HELP
+        Usage: md2pdf doctor
+
+        Reports each dependency with its version and resolved path,
+        starting Chromium rather than only checking that the file is
+        there. Exits non-zero if anything is missing or cannot run.
+
+        Takes no options.
+      HELP
+
+      INSTALL_DEPS_FLAGS = %w[
+        --latest --force --with-libraries --yes
+      ].freeze
+
+      INSTALL_DEPS_HELP = <<~HELP
+        Usage: md2pdf install-deps [options]
+
+        Downloads a pinned, checksum-verified chrome-headless-shell
+        into the gem-managed directory and verifies that it starts.
+        Needs no root and changes nothing outside that directory.
+
+        Note that md2pdf then prefers this build over any browser on
+        PATH, so rendering may differ from before.
+
+          --latest          Take current stable rather than the
+                            pinned build. Skips checksum
+                            verification, there being nothing
+                            pinned to compare against.
+          --force           Reinstall even if that version is
+                            already present.
+          --with-libraries  If the download cannot start for want
+                            of shared libraries, show the package
+                            command and offer to run it under sudo.
+          --yes             Answer that prompt in advance, for
+                            unattended installs.
+      HELP
+
       OK = 0
       FAILURE = 1
       USAGE_ERROR = 2
@@ -148,9 +187,10 @@ module Transpareo
       module_function
 
       def run(argv)
+        args = argv.drop(1)
         case argv.first
-        when 'doctor' then return doctor
-        when 'install-deps' then return install_deps(argv.drop(1))
+        when 'doctor' then return run_doctor(args)
+        when 'install-deps' then return run_install_deps(args)
         when '-v', '--version' then return version
         end
 
@@ -161,6 +201,36 @@ module Transpareo
       rescue Interrupt
         warn 'md2pdf: interrupted'
         INTERRUPTED
+      end
+
+      def run_doctor(args)
+        refused = refuse_subcommand('doctor', args, [], DOCTOR_HELP)
+        refused || doctor
+      end
+
+      def run_install_deps(args)
+        refused = refuse_subcommand(
+          'install-deps', args, INSTALL_DEPS_FLAGS, INSTALL_DEPS_HELP,
+        )
+        refused || install_deps(args)
+      end
+
+      # An exit status when the command must not run, nil to
+      # proceed. A subcommand that quietly ignores what it does not
+      # recognise turns a typo, or an ordinary request for help,
+      # into a hundred-megabyte download.
+      def refuse_subcommand(name, args, allowed, help_text)
+        if args.intersect?(HELP_FLAGS)
+          puts help_text
+          return OK
+        end
+
+        unknown = args - allowed
+        return nil if unknown.empty?
+
+        warn "md2pdf #{name}: unknown option: #{unknown.first}"
+        warn "Try `md2pdf #{name} --help`."
+        USAGE_ERROR
       end
 
       def version
