@@ -6,6 +6,7 @@ class DependenciesTest < Minitest::Test
   include TestSupport
 
   Dependencies = Transpareo::Md2pdf::Dependencies
+  Platform = Transpareo::Md2pdf::Platform
 
   def test_home_honours_md2pdf_home
     with_env('MD2PDF_HOME' => '/custom/place') do
@@ -187,6 +188,121 @@ class DependenciesTest < Minitest::Test
 
   def test_libraries_hint_is_never_empty
     refute_empty Dependencies.libraries_hint
+  end
+
+  # Naming the packages for the libraries actually missing, rather
+  # than the whole of Chrome's closure. Two absent libraries is a
+  # couple of hundred kilobytes; the full list is a page of
+  # packages the machine mostly already has.
+
+  MISSING = %w[libXdamage.so.1 libXfixes.so.3].freeze
+
+  def test_debian_family_gets_the_two_packages_it_needs
+    %i[debian ubuntu].each do |family|
+      Platform.stub(:linux_family, family) do
+        assert_equal 'sudo apt install libxdamage1 libxfixes3',
+                     Dependencies.libraries_hint(MISSING)
+      end
+    end
+  end
+
+  def test_arch_lowercases_the_library_name
+    Platform.stub(:linux_family, :arch) do
+      assert_equal 'sudo pacman -S libxdamage libxfixes',
+                   Dependencies.libraries_hint(MISSING)
+    end
+  end
+
+  def test_fedora_keeps_the_library_capitalisation
+    Platform.stub(:linux_family, :fedora) do
+      assert_equal 'sudo dnf install libXdamage libXfixes',
+                   Dependencies.libraries_hint(MISSING)
+    end
+  end
+
+  def test_an_unknown_distro_still_names_the_libraries
+    Platform.stub(:linux_family, :unknown) do
+      hint = Dependencies.libraries_hint(MISSING)
+
+      assert_match(/libXdamage\.so\.1/, hint)
+    end
+  end
+
+  # The installer runs this, so it is argv rather than a sentence
+  # to be split apart again.
+  def test_the_command_is_built_as_arguments
+    Platform.stub(:linux_family, :debian) do
+      assert_equal %w[sudo apt install libxdamage1 libxfixes3],
+                   Dependencies.library_command(MISSING)
+    end
+  end
+
+  def test_there_is_no_command_for_a_distro_with_no_mapping
+    Platform.stub(:linux_family, :unknown) do
+      assert_nil Dependencies.library_command(MISSING)
+    end
+  end
+
+  def test_there_is_no_command_when_nothing_is_missing
+    Platform.stub(:linux_family, :debian) do
+      assert_nil Dependencies.library_command([])
+    end
+  end
+
+  # Debian names a library package after its soname, with enough
+  # exceptions in Chrome's closure to be worth listing.
+  def test_soname_maps_to_a_debian_package
+    {
+      'libXdamage.so.1' => 'libxdamage1',
+      'libXfixes.so.3' => 'libxfixes3',
+      'libgbm.so.1' => 'libgbm1',
+      'libxkbcommon.so.0' => 'libxkbcommon0',
+    }.each do |soname, package|
+      assert_equal package, Dependencies.debian_package(soname)
+    end
+  end
+
+  def test_the_exceptions_to_that_rule_are_handled
+    {
+      'libnss3.so' => 'libnss3',
+      'libatk-1.0.so.0' => 'libatk1.0-0',
+      'libX11.so.6' => 'libx11-6',
+      'libcups.so.2' => 'libcups2',
+      'libplc4.so' => 'libnspr4',
+    }.each do |soname, package|
+      assert_equal package, Dependencies.debian_package(soname)
+    end
+  end
+
+  def test_duplicate_packages_are_listed_once
+    sonames = %w[libnss3.so libnssutil3.so libsmime3.so]
+
+    Platform.stub(:linux_family, :debian) do
+      assert_equal 'sudo apt install libnss3',
+                   Dependencies.libraries_hint(sonames)
+    end
+  end
+
+  # Ubuntu has no chromium package, and its chromium-browser is a
+  # shim that installs snapd plus a confined browser that cannot
+  # read the temporary files md2pdf hands it.
+  def test_ubuntu_is_not_told_to_apt_install_chromium
+    Platform.stub(:linux_family, :ubuntu) do
+      Platform.stub(:os, :linux) do
+        hint = Dependencies.install_hint
+
+        refute_match(/apt install chromium/, hint)
+        assert_match(/install-deps/, hint)
+      end
+    end
+  end
+
+  def test_debian_is_still_told_to_apt_install_chromium
+    Platform.stub(:linux_family, :debian) do
+      Platform.stub(:os, :linux) do
+        assert_equal 'sudo apt install chromium', Dependencies.install_hint
+      end
+    end
   end
 
   private

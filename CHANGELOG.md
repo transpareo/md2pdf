@@ -93,6 +93,21 @@ and a fresh `## [Unreleased]` opens above it.
   but never started, which is the same fault one step earlier. It
   now verifies the binary runs and raises
   `UnusableDependencyError` naming the missing libraries.
+- The remedy named the whole of Chrome's library closure, a page
+  of packages the machine mostly already has. It now names the
+  packages for the libraries actually missing, so two absent
+  libraries produce `sudo apt install libxdamage1 libxfixes3`.
+- Ubuntu was told to `apt install chromium`, which does not exist
+  there. Its `chromium-browser` is a transitional package pulling
+  in snapd and a confined browser that cannot read the temporary
+  files md2pdf hands it, so Ubuntu is now told to download the
+  binary instead. Debian, which does have the package, is
+  unaffected.
+- `install-deps --with-libraries` offers to install those packages
+  after showing the exact command. Plain `install-deps` still
+  never escalates, and without a terminal to answer the prompt it
+  prints the command rather than blocking on it. `--yes` answers
+  in advance for deploy scripts.
 - Only the nearest `.md2pdf.yml` was read, so a project file that
   set one thing silently discarded everything its parent
   directories established, which is the opposite of what putting

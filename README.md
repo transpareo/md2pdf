@@ -90,20 +90,37 @@ libXdamage.so.1: cannot open shared object file
 
 `md2pdf doctor` detects this. It starts the binary rather than
 just checking the file is there, and lists **every** missing
-library, not only the first one the loader complains about:
+library, not only the first one the loader complains about, then
+names the packages that supply exactly those:
 
 ```
   MISS  chromium      cannot start, missing libXdamage.so.1, libXfixes.so.3
 
 chromium: cannot start, missing libXdamage.so.1, libXfixes.so.3
-  sudo apt install libnss3 libnspr4 libatk1.0-0 ...
+  sudo apt install libxdamage1 libxfixes3
 ```
 
 `install-deps` runs the same check after unpacking and fails
-loudly rather than reporting a success you cannot use.
+loudly rather than reporting a success you cannot use. Add
+`--with-libraries` and it will show that command and offer to run
+it:
 
-Installing the distro package instead of downloading also solves
-it, since that brings the whole dependency closure with it.
+```sh
+md2pdf install-deps --with-libraries        # asks before sudo
+md2pdf install-deps --with-libraries --yes  # for a deploy script
+```
+
+Plain `install-deps` never uses sudo. It writes only into
+`~/.local/share/md2pdf`, and that stays true. Without a terminal
+to answer the prompt it prints the command and stops rather than
+blocking on a password nobody will see.
+
+**On Ubuntu, do not install the distro browser.** There is no
+`chromium` package, and `chromium-browser` is a transitional shim
+that pulls in snapd and a confined browser, which cannot read the
+temporary files md2pdf hands it. Download the binary and add the
+two or three libraries it wants. On Debian, Fedora and Arch the
+distro `chromium` is fine and brings its own closure.
 
 ## Usage
 

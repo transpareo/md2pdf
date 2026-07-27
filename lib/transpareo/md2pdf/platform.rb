@@ -61,7 +61,11 @@ module Transpareo
         when /arch|manjaro/ then :arch
         when /alpine/ then :alpine
         when /fedora|rhel|centos/ then :fedora
-        when /debian|ubuntu/ then :debian
+        # Ubuntu is not Debian for this purpose: it has no chromium
+        # package, only a chromium-browser that is a transitional
+        # shim pulling in snapd and a confined browser.
+        when /ubuntu/ then :ubuntu
+        when /debian/ then :debian
         else :unknown
         end
       end

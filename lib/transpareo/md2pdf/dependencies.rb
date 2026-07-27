@@ -186,25 +186,100 @@ module Transpareo
         when :fedora then 'sudo dnf install chromium'
         when :alpine then 'sudo apk add chromium'
         when :debian then 'sudo apt install chromium'
+        # Ubuntu ships no chromium package, and its chromium-browser
+        # is a shim that installs snapd and a confined browser. A
+        # confined browser cannot read the temporary files md2pdf
+        # hands it, so the download is the better route here.
+        when :ubuntu then 'md2pdf install-deps'
         else 'install chromium with your package manager'
         end
       end
 
-      # The libraries a headless Chrome needs. A distro package
-      # pulls these in as dependencies; a downloaded archive does
-      # not, which is why a bare server needs them named.
-      LIBRARY_PACKAGES = {
-        debian: 'sudo apt install libnss3 libnspr4 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libpango-1.0-0 libcairo2 libasound2',
-        fedora: 'sudo dnf install nss nspr atk at-spi2-atk cups-libs libdrm libxkbcommon libXcomposite libXdamage libXfixes libXrandr mesa-libgbm pango cairo alsa-lib',
-        arch: 'sudo pacman -S nss nspr atk at-spi2-atk libcups libdrm libxkbcommon libxcomposite libxdamage libxfixes libxrandr mesa pango cairo alsa-lib',
-        alpine: 'sudo apk add nss nspr atk at-spi2-atk cups-libs libdrm libxkbcommon libxcomposite libxdamage libxfixes libxrandr mesa-gbm pango cairo alsa-lib',
+      INSTALL_COMMANDS = {
+        debian: 'sudo apt install',
+        ubuntu: 'sudo apt install',
+        fedora: 'sudo dnf install',
+        arch: 'sudo pacman -S',
+        alpine: 'sudo apk add',
       }.freeze
 
-      # Installing the distro's own chromium is the other way out:
-      # it drags the whole closure in, then md2pdf finds it on PATH.
-      def libraries_hint
-        LIBRARY_PACKAGES[Platform.linux_family] ||
-          "install the shared libraries headless Chrome needs, or #{install_hint}"
+      # Debian and Ubuntu name a library package after its soname:
+      # libXdamage.so.1 is in libxdamage1. These are the members of
+      # Chrome's closure that break that rule.
+      DEBIAN_PACKAGE_NAMES = {
+        'libX11.so.6' => 'libx11-6',
+        'libasound.so.2' => 'libasound2',
+        'libatk-1.0.so.0' => 'libatk1.0-0',
+        'libatk-bridge-2.0.so.0' => 'libatk-bridge2.0-0',
+        'libatspi.so.0' => 'libatspi2.0-0',
+        'libcairo-gobject.so.2' => 'libcairo-gobject2',
+        'libcups.so.2' => 'libcups2',
+        'libdbus-1.so.3' => 'libdbus-1-3',
+        'libgdk-3.so.0' => 'libgtk-3-0',
+        'libglib-2.0.so.0' => 'libglib2.0-0',
+        'libgtk-3.so.0' => 'libgtk-3-0',
+        'libnspr4.so' => 'libnspr4',
+        'libnss3.so' => 'libnss3',
+        'libnssutil3.so' => 'libnss3',
+        'libpango-1.0.so.0' => 'libpango-1.0-0',
+        'libpangocairo-1.0.so.0' => 'libpangocairo-1.0-0',
+        'libplc4.so' => 'libnspr4',
+        'libplds4.so' => 'libnspr4',
+        'libsmime3.so' => 'libnss3',
+      }.freeze
+
+      # The command to install exactly the libraries missing, as
+      # argv, or nil when this system has no mapping for them.
+      #
+      # Built as data rather than a sentence, because the installer
+      # runs it. Splitting a display string back into arguments
+      # works right up until a package name or path contains a
+      # space.
+      def library_command(missing = [])
+        command = INSTALL_COMMANDS[Platform.linux_family]
+        packages = library_packages(missing)
+        return nil if command.nil? || packages.empty?
+
+        command.split + packages
+      end
+
+      # Names the packages for the libraries actually missing, not
+      # the whole of Chrome's closure. Two absent libraries is a
+      # couple of hundred kilobytes; the full list is a page of
+      # packages the machine mostly already has.
+      def libraries_hint(missing = [])
+        command = library_command(missing)
+        return generic_library_hint(missing) unless command
+
+        command.join(' ')
+      end
+
+      def library_packages(missing)
+        case Platform.linux_family
+        when :debian, :ubuntu then missing.map { |so| debian_package(so) }
+        # Fedora keeps the library's own capitalisation, libXdamage;
+        # Arch and Alpine lowercase it.
+        when :fedora then missing.map { |so| soname_stem(so) }
+        when :arch, :alpine
+          missing.map { |so| soname_stem(so).downcase }
+        else []
+        end.uniq
+      end
+
+      def debian_package(soname)
+        DEBIAN_PACKAGE_NAMES[soname] ||
+          soname.sub(/\.so(?:\.(\d+))?.*\z/) { Regexp.last_match(1) }
+            .downcase
+      end
+
+      def soname_stem(soname)
+        soname.sub(/\.so(?:\..*)?\z/, '')
+      end
+
+      def generic_library_hint(missing)
+        return "install #{missing.join(', ')}" if missing.any?
+
+        'install the shared libraries headless Chrome needs'
       end
 
       # Structured report backing `md2pdf doctor`.
@@ -229,10 +304,12 @@ module Transpareo
         result = probe(path)
         return chromium_ok(row, result[:output]) if result[:ok]
 
+        missing = missing_libraries(path)
+        missing = named_libraries(result[:output]) if missing.empty?
         row.merge(
           ok: false,
           problem: startup_problem(path, result[:output]),
-          remedy: libraries_hint,
+          remedy: libraries_hint(missing),
         )
       end
 

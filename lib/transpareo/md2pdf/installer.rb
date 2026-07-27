@@ -45,14 +45,15 @@ module Transpareo
 
       module_function
 
-      def install(version: CHROME_VERSION, latest: false, force: false)
+      def install(version: CHROME_VERSION, latest: false, force: false,
+                  libraries: false, assume_yes: false)
         slug = require_slug!
         version = resolve_latest(slug) if latest
         target = File.join(Dependencies.home, 'chrome', version)
 
         if File.directory?(target) && !force
           puts "chromium #{version} already installed at #{target}"
-          return shim_path
+          return verify_runs(libraries: libraries, assume_yes: assume_yes)
         end
 
         Dir.mktmpdir('md2pdf-install') do |tmp|
@@ -63,9 +64,8 @@ module Transpareo
         end
 
         write_shim(target, slug)
-        verify_runs
         puts "chromium #{version} installed to #{target}"
-        shim_path
+        verify_runs(libraries: libraries, assume_yes: assume_yes)
       end
 
       # Unpacking is not installing. The archive carries no
@@ -73,14 +73,67 @@ module Transpareo
       # intact and still cannot start. Reporting success here is
       # what sends someone hunting through their own application
       # for a fault that is ours to name.
-      def verify_runs
+      def verify_runs(libraries: false, assume_yes: false)
         result = Dependencies.probe(shim_path)
-        return true if result[:ok]
+        return shim_path if result[:ok]
 
+        missing = missing_for(result[:output])
+        if libraries && install_libraries(missing, assume_yes: assume_yes)
+          return verify_after_libraries
+        end
+
+        raise_unusable(result[:output], missing)
+      end
+
+      def missing_for(output)
+        found = Dependencies.missing_libraries(shim_path)
+        found.empty? ? Dependencies.named_libraries(output) : found
+      end
+
+      def verify_after_libraries
+        result = Dependencies.probe(shim_path)
+        return shim_path if result[:ok]
+
+        raise_unusable(result[:output], missing_for(result[:output]))
+      end
+
+      def raise_unusable(output, missing)
         raise UnusableDependencyError.new(
           'chromium',
-          "chromium was downloaded but cannot start.\n  #{Dependencies.startup_problem(shim_path, result[:output])}\nInstall the libraries it needs:\n  #{Dependencies.libraries_hint}",
+          "chromium was downloaded but cannot start.\n  #{Dependencies.startup_problem(shim_path, output)}\nInstall what it is missing:\n  #{Dependencies.libraries_hint(missing)}",
         )
+      end
+
+      # Escalating to root is never a side effect here: it happens
+      # only when asked for, only after showing the exact command,
+      # and only with someone present to answer, so an unattended
+      # run fails with the command printed instead of blocking on a
+      # password prompt nobody will see.
+      #
+      # A command, not a predicate: installing is the point and the
+      # boolean says whether it happened.
+      # rubocop:disable Naming/PredicateMethod
+      def install_libraries(missing, assume_yes: false)
+        command = Dependencies.library_command(missing)
+        return false unless command
+
+        puts "\nwill run:\n  #{command.join(' ')}"
+        return false unless assume_yes || confirmed?
+        return true if system(*command)
+
+        warn "md2pdf: `#{command.join(' ')}` failed"
+        false
+      end
+      # rubocop:enable Naming/PredicateMethod
+
+      def confirmed?
+        unless $stdin.tty?
+          warn 'md2pdf: not a terminal, skipping. Pass --yes to run it.'
+          return false
+        end
+
+        print 'continue? [y/N] '
+        $stdin.gets.to_s.strip.casecmp('y').zero?
       end
 
       def require_slug!

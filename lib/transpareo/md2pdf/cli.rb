@@ -25,7 +25,14 @@ module Transpareo
           doctor                 Report dependency status and exit.
           install-deps           Download a known-good Chromium into
                                  the gem-managed directory. Accepts
-                                 --latest and --force.
+                                 --latest and --force. Never uses
+                                 sudo.
+            --with-libraries     If the download cannot start for
+                                 want of shared libraries, show the
+                                 package command and offer to run
+                                 it under sudo.
+            --yes                Answer that prompt in advance, for
+                                 unattended installs.
 
         Configuration precedence (highest first):
           1. CLI flags
@@ -194,6 +201,8 @@ module Transpareo
         Installer.install(
           latest: args.include?('--latest'),
           force: args.include?('--force'),
+          libraries: args.include?('--with-libraries'),
+          assume_yes: args.include?('--yes'),
         )
         OK
       end
