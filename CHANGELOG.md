@@ -4,9 +4,13 @@ All notable changes to this project are documented here. The format
 follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 this project adheres to [Semantic Versioning](https://semver.org).
 
-## [1.0.0]
+## [Unreleased]
 
-First release as a gem.
+The first release as a gem. Nothing has been published yet, so
+everything below is still 1.0.0 rather than a series of bumps: a
+version number describes something people can install, and these
+never were. On release this heading becomes `## [1.0.0] - <date>`
+and a fresh `## [Unreleased]` opens above it.
 
 ### Added
 
@@ -80,6 +84,12 @@ First release as a gem.
   `.md` file silently converted that unrelated file and reported
   success, discarding the piped input. Piped input now wins over
   the directory glob.
+- An empty document aborted with a type error raised from inside
+  the markdown parser, because joining an empty array yields a
+  US-ASCII string and the parser accepts only UTF-8. Empty input
+  now renders a blank page and warns. This affected empty files as
+  much as empty pipes, which is what an upstream generator failing
+  produces.
 - Input is read as UTF-8 rather than in the locale's encoding. The
   markdown parser accepts only UTF-8, so under `LANG=C` every
   document failed with a type error from inside the parser. Invalid

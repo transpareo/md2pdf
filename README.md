@@ -99,8 +99,22 @@ named and stdin is not a terminal:
 cat report.md | md2pdf - > report.pdf
 md2pdf < report.md > report.pdf
 pandoc -t gfm notes.docx | md2pdf - --output=notes.pdf
-./generate-report.sh | md2pdf - > report.pdf
+./code-stats.py --locale=de | md2pdf - --locale=de > stats.pdf
 ```
+
+The program on the left writes markdown to its own standard
+output; `|` hands that to md2pdf; `>` captures the PDF. Note the
+locale appearing twice in the last example: the first flag tells
+your generator which language to write, the second tells md2pdf
+which language to label the table of contents and footnotes in.
+They are different programs and neither can read the other's
+arguments. Alternatively have the generator emit front matter, or
+set `locale:` in `.md2pdf.yml`, and md2pdf picks it up.
+
+Use `set -o pipefail` in scripts. Without it a shell pipeline
+reports the exit status of the last command only, so a generator
+that dies halfway leaves you with a PDF of whatever it managed to
+print and a successful exit status.
 
 With no destination the PDF goes to stdout, since there is no input
 filename to sit next to. Progress messages go to stderr in that

@@ -31,6 +31,27 @@ class MarkdownTest < Minitest::Test
     assert_equal 1, out.scan('</div>').size
   end
 
+  # Joining an empty array yields a US-ASCII string, which the
+  # parser rejects outright, so an empty document used to abort
+  # with a type error raised from inside commonmarker.
+  def test_renders_an_empty_document
+    assert_equal '', Markdown.to_html('').strip
+  end
+
+  def test_renders_a_whitespace_only_document
+    assert_equal '', Markdown.to_html("  \n\n ").strip
+  end
+
+  def test_accepts_ascii_tagged_input
+    html = Markdown.to_html('# Hi'.dup.force_encoding('US-ASCII'))
+
+    assert_includes html, '<h1'
+  end
+
+  def test_keeps_non_ascii_content_intact
+    assert_includes Markdown.to_html('# Grüße'), 'Grüße'
+  end
+
   def test_renders_gfm_tables
     assert_includes Markdown.to_html("| a |\n|---|\n| 1 |\n"), '<table>'
   end

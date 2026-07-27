@@ -38,10 +38,20 @@ module Transpareo
 
       def to_html(text)
         Commonmarker.to_html(
-          expand_fenced_divs(text),
+          utf8(expand_fenced_divs(text)),
           options: OPTIONS,
           plugins: { syntax_highlighter: nil }
         )
+      end
+
+      # The parser rejects anything not tagged UTF-8, and joining an
+      # empty array yields a US-ASCII string, so an empty document
+      # would otherwise fail here rather than render as one blank
+      # page. Enforced at the boundary that has the requirement.
+      def utf8(text)
+        return text if text.encoding == Encoding::UTF_8
+
+        text.dup.force_encoding(Encoding::UTF_8)
       end
 
       # Rewrites `::: name` / `:::` pairs into raw div tags, which

@@ -105,12 +105,42 @@ in `filters.rb`, place it in `chain` with a comment if its position
 matters, and test it through `TestSupport#render_html`, which runs
 the real chain without a browser.
 
+## Versioning
+
+The version in `lib/transpareo/md2pdf/version.rb` is the single
+source of truth: the gemspec reads it, and `rake release` tags from
+it.
+
+**A version number describes something someone can install.** Work
+accumulates under `## [Unreleased]` in `CHANGELOG.md` and the
+version is bumped once, as part of releasing, not with each change.
+Bumping per pull request mints numbers that never existed on
+rubygems and makes the changelog a poor record of what any given
+release actually contained.
+
+After 1.0.0, follow semver against the public surface, which is the
+CLI flags, the config keys and `Transpareo::Md2pdf.convert`:
+
+- **patch** for fixes that change no interface
+- **minor** for new flags, config keys or options
+- **major** for removing or redefining any of them, or for raising
+  the required Ruby version
+
+Rendering differences deserve care. A change that makes existing
+documents come out visibly different is not a patch even when no
+interface moved, because the output is the product.
+
 ## Releasing
 
-1. Bump `lib/transpareo/md2pdf/version.rb`.
-2. Move the unreleased notes in `CHANGELOG.md` under the new
-   version.
-3. `rake build` then `rake release`.
+1. `rake test` and `rake rubocop`.
+2. `rake readme_pdf`, so the committed demo matches the release.
+3. Set the version in `lib/transpareo/md2pdf/version.rb`.
+4. In `CHANGELOG.md`, retitle `## [Unreleased]` to
+   `## [x.y.z] - YYYY-MM-DD` and open a fresh `## [Unreleased]`
+   above it.
+5. Commit, then `rake release`, which tags `vx.y.z`, builds, and
+   pushes to rubygems. It needs MFA, since the gemspec sets
+   `rubygems_mfa_required`.
 
 Bumping the pinned Chromium in `installer.rb` means re-running
 `rake checksums` and pasting the results into `CHECKSUMS`. The

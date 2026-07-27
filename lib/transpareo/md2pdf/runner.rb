@@ -61,6 +61,7 @@ module Transpareo
 
         text = Config.strip_front_matter(source)
         text = Unwrap.call(text) if unwrap
+        warn 'md2pdf: input is empty' if text.strip.empty?
         toc &&= h2_count(text) >= toc_min &&
                 word_count(text) >= toc_min_words
 
