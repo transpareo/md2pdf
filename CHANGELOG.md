@@ -39,6 +39,10 @@ and a fresh `## [Unreleased]` opens above it.
   goes to stdout, with progress on stderr so it cannot land inside
   the document, and md2pdf refuses to write PDF bytes to a
   terminal. Front matter in piped input is honoured as usual.
+- Reading from a pipe announces itself on stderr before it blocks.
+  The read waits for the program upstream to close the pipe, so
+  without this a slow generator is indistinguishable from md2pdf
+  hanging.
 - A running footer title, centred between the logo and the page
   number. It carries the document's own H1 by default, is
   overridden with `--footer-title` or `footer-title:`, and is

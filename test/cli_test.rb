@@ -195,6 +195,21 @@ class CLITest < Minitest::Test
     assert_equal ['-'], CLI.filter_markdown(['-'])
   end
 
+  # Reading stdin blocks until the program upstream closes the
+  # pipe, so the notice has to come out before the read, not after,
+  # or a slow generator is indistinguishable from a hang.
+  def test_announces_stdin_before_blocking_on_it
+    _, err = capture_io do
+      $stdin.stub(:tty?, false) do
+        $stdin.stub(:read, -> { raise Interrupt }) do
+          assert_raises(Interrupt) { CLI.convert_stdin({}) }
+        end
+      end
+    end
+
+    assert_match(/reading markdown from stdin/, err)
+  end
+
   def test_convert_stdin_refuses_when_stdin_is_a_terminal
     result = nil
     _, err = capture_io do

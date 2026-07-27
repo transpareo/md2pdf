@@ -310,6 +310,12 @@ module Transpareo
           return false
         end
 
+        # Said before the read, not after. This call blocks until
+        # the program upstream finishes and closes the pipe, so
+        # without a word here a slow generator looks like md2pdf
+        # hanging, and there is nothing on screen to tell them
+        # apart.
+        warn 'md2pdf: reading markdown from stdin'
         text = Runner.as_utf8($stdin.read)
         settings = Md2pdf.settings(Runner::STDIN_MARKER, cli_opts, text)
         Runner.convert(Runner::STDIN_MARKER, **settings, source_text: text)

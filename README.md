@@ -111,11 +111,6 @@ They are different programs and neither can read the other's
 arguments. Alternatively have the generator emit front matter, or
 set `locale:` in `.md2pdf.yml`, and md2pdf picks it up.
 
-Use `set -o pipefail` in scripts. Without it a shell pipeline
-reports the exit status of the last command only, so a generator
-that dies halfway leaves you with a PDF of whatever it managed to
-print and a successful exit status.
-
 With no destination the PDF goes to stdout, since there is no input
 filename to sit next to. Progress messages go to stderr in that
 mode so they cannot land inside the document. `--output` or
@@ -132,6 +127,25 @@ document's first heading, reduced to something safe to put in a
 path: `# Q3/Q4 Results` yields `Q3-Q4-Results.pdf` rather than
 creating a `Q3/` directory. Pass `--output` when you want to choose
 the name yourself.
+
+#### When a pipeline misbehaves
+
+Reading a pipe blocks until the program upstream finishes and
+closes it, so md2pdf prints `reading markdown from stdin` as soon
+as it starts. If that line appears and nothing follows, the wait is
+in your generator rather than here. Run it on its own to confirm:
+
+```sh
+time ./code-stats.py --locale=de > /tmp/stats.md
+```
+
+Separating the two stages that way is also the quickest route to
+finding out which one produced a surprising document.
+
+Use `set -o pipefail` in scripts. Without it a shell pipeline
+reports the exit status of the last command only, so a generator
+that dies halfway leaves you with a PDF of whatever it managed to
+print, and a successful exit status.
 
 ### As a library
 
