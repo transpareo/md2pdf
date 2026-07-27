@@ -60,6 +60,81 @@ class InstallerTest < Minitest::Test
     end
   end
 
+  def test_a_glibc_system_gets_its_slug
+    Transpareo::Md2pdf::Platform.stub(:chrome_slug, 'linux64') do
+      Transpareo::Md2pdf::Platform.stub(:musl?, false) do
+        assert_equal 'linux64', Installer.require_slug!
+      end
+    end
+  end
+
+  # The prebuilt archives link against glibc, so a musl system
+  # must be refused before the download, not after it, when the
+  # binary dies in the loader and the error blames libraries no
+  # package can supply.
+  def test_a_musl_system_is_refused_before_the_download
+    Transpareo::Md2pdf::Platform.stub(:chrome_slug, 'linux64') do
+      Transpareo::Md2pdf::Platform.stub(:musl?, true) do
+        error =
+          assert_raises(Transpareo::Md2pdf::UnsupportedPlatformError) do
+            Installer.require_slug!
+          end
+
+        assert_match(/glibc/, error.message)
+        assert_match(/package manager/, error.message)
+      end
+    end
+  end
+
+  def test_an_unsupported_platform_is_refused_with_a_hint
+    Transpareo::Md2pdf::Platform.stub(:chrome_slug, nil) do
+      error =
+        assert_raises(Transpareo::Md2pdf::UnsupportedPlatformError) do
+          Installer.require_slug!
+        end
+
+      assert_match(/no prebuilt Chromium/, error.message)
+    end
+  end
+
+  def test_promote_replaces_the_target_with_the_staged_tree
+    Dir.mktmpdir do |dir|
+      staging = File.join(dir, 'v.partial')
+      target = File.join(dir, 'v')
+      FileUtils.mkdir_p(staging)
+      File.write(File.join(staging, 'chrome'), 'new')
+      FileUtils.mkdir_p(target)
+      File.write(File.join(target, 'stale'), 'old')
+
+      Installer.promote(staging, target)
+
+      assert_equal 'new', File.read(File.join(target, 'chrome'))
+      refute_path_exists File.join(target, 'stale')
+      refute_path_exists staging
+    end
+  end
+
+  # An install interrupted between unpacking and writing the shim
+  # leaves a tree that looks installed but resolves to nothing. A
+  # rerun must repair the shim rather than demand --force.
+  def test_a_rerun_restores_a_missing_shim
+    Dir.mktmpdir do |home|
+      TestSupport.with_env('MD2PDF_HOME' => home) do
+        FileUtils.mkdir_p(File.join(home, 'chrome', '1.2.3'))
+        Transpareo::Md2pdf::Platform.stub(:chrome_slug, 'linux64') do
+          Transpareo::Md2pdf::Platform.stub(:musl?, false) do
+            Installer.stub(:verify_runs, Installer.shim_path) do
+              capture_io { Installer.install(version: '1.2.3') }
+            end
+          end
+        end
+
+        assert File.executable?(Installer.shim_path)
+        assert_match(%r{chrome/1\.2\.3/}, File.read(Installer.shim_path))
+      end
+    end
+  end
+
   # Escalating to root is never a side effect. It happens only when
   # asked for, only after the exact command is shown, and only with
   # someone present to answer.

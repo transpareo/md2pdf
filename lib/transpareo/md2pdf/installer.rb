@@ -53,19 +53,42 @@ module Transpareo
 
         if File.directory?(target) && !force
           puts "chromium #{version} already installed at #{target}"
-          return verify_runs(libraries: libraries, assume_yes: assume_yes)
+        else
+          fetch_into(target, version, slug, latest)
+          puts "chromium #{version} installed to #{target}"
         end
 
+        # Rewritten even when the tree was already there: a run
+        # interrupted between unpacking and this point left the
+        # binary without its shim, and rerunning has to repair
+        # that rather than demand --force.
+        write_shim(target, slug)
+        verify_runs(libraries: libraries, assume_yes: assume_yes)
+      end
+
+      # The unpacked tree is staged beside its destination and
+      # renamed into place only when complete, so an interrupted
+      # extraction leaves a .partial directory the next run
+      # replaces, never a half-populated tree that passes for
+      # installed. Beside the target rather than in the tmpdir,
+      # because rename is atomic only within one filesystem and
+      # /tmp is often another.
+      def fetch_into(target, version, slug, latest)
         Dir.mktmpdir('md2pdf-install') do |tmp|
           archive = File.join(tmp, 'chrome.zip')
           download(chrome_url(version, slug), archive)
           verify(archive, latest ? nil : CHECKSUMS[slug])
-          unpack(archive, target)
+          staging = "#{target}.partial"
+          FileUtils.rm_rf(staging)
+          unpack(archive, staging)
+          promote(staging, target)
         end
+      end
 
-        write_shim(target, slug)
-        puts "chromium #{version} installed to #{target}"
-        verify_runs(libraries: libraries, assume_yes: assume_yes)
+      def promote(staging, target)
+        FileUtils.rm_rf(target)
+        File.rename(staging, target)
+        target
       end
 
       # Unpacking is not installing. The archive carries no
@@ -136,12 +159,27 @@ module Transpareo
         $stdin.gets.to_s.strip.casecmp('y').zero?
       end
 
+      # Chrome for Testing publishes glibc builds only, so a musl
+      # system (Alpine) is refused before the download rather than
+      # after, when the binary would die in the dynamic loader and
+      # the error would blame libraries no package can supply.
       def require_slug!
         slug = Platform.chrome_slug
-        return slug if slug
+        if slug.nil?
+          raise_unsupported(
+            "no prebuilt Chromium for #{Platform.os}/#{Platform.arch}",
+          )
+        end
+        return slug unless Platform.musl?
 
+        raise_unsupported(
+          'the prebuilt Chromium needs glibc, which this system lacks',
+        )
+      end
+
+      def raise_unsupported(reason)
         raise UnsupportedPlatformError,
-              "no prebuilt Chromium for #{Platform.os}/#{Platform.arch}. Install one with your package manager instead:\n  #{Dependencies.install_hint}"
+              "#{reason}. Install one with your package manager instead:\n  #{Dependencies.install_hint}"
       end
 
       def chrome_url(version, slug)

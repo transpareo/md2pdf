@@ -71,6 +71,9 @@ shipped in the gem, and unpacks it. No root, no `PATH` changes, and
 it never runs on its own. `--force` reinstalls; `--latest` takes
 current stable instead of the pinned build, which skips checksum
 verification since there is nothing pinned to compare against.
+Interrupting it is safe: the archive unpacks into a staging
+directory that is renamed into place only when complete, and
+running it again finishes whatever was cut short.
 
 Chromium is resolved from `CHROMIUM`, then the `install-deps`
 directory, then `PATH`, then the standard macOS app bundles.
@@ -143,6 +146,11 @@ that pulls in snapd and a confined browser, which cannot read the
 temporary files md2pdf hands it. Download the binary and add the
 two or three libraries it wants. On Debian, Fedora and Arch the
 distro `chromium` is fine and brings its own closure.
+
+**On Alpine and other musl systems, `install-deps` refuses**:
+Google publishes glibc builds only, so nothing it could download
+would run there. `apk add chromium` installs a native build that
+works.
 
 ## Usage
 

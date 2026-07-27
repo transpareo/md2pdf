@@ -124,6 +124,17 @@ and a fresh `## [Unreleased]` opens above it.
   never escalates, and without a terminal to answer the prompt it
   prints the command rather than blocking on it. `--yes` answers
   in advance for deploy scripts.
+- An interrupted `install-deps` left a tree that a rerun reported
+  as already installed and then failed against, blaming missing
+  libraries when the real casualty was the half-written install;
+  only `--force` recovered. The archive now unpacks into a staging
+  directory that is renamed into place when complete, and a rerun
+  rewrites the shim, so an install stopped at any point is
+  finished by running it again.
+- On musl systems such as Alpine, `install-deps` downloaded a
+  Chromium that can never start: Chrome for Testing publishes
+  glibc builds only. It now refuses before the download and points
+  at the distro package instead.
 - Only the nearest `.md2pdf.yml` was read, so a project file that
   set one thing silently discarded everything its parent
   directories established, which is the opposite of what putting
