@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative 'filters/slugs'
+require_relative 'filters/editable_fields'
 require_relative 'filters/images'
 require_relative 'filters/title_page'
 require_relative 'filters/footnotes'
@@ -22,8 +23,9 @@ module Transpareo
     module Filters
       module_function
 
-      def chain(flat:, toc:)
+      def chain(flat:, toc:, editable: false)
         chain = [Slugs, Images, TitlePage, Footnotes]
+        chain << EditableFields if editable
         chain << Demote if flat
         chain << Toc if toc
         chain + [CodeHighlight, CodeWbr, Tables]

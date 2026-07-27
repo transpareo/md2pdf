@@ -54,6 +54,53 @@ class FiltersTest < Minitest::Test
                     'id="hello-world"'
   end
 
+  # Editable fields
+
+  def test_editable_checkboxes_become_self_linked_anchors
+    html = render_html("- [ ] open\n- [x] done\n", editable: true)
+    anchors = Nokogiri::HTML5.fragment(html).css('a.form-checkbox')
+
+    assert_equal(%w[md2pdf.cb.1 md2pdf.cb.2x],
+                 anchors.map { |a| a['id'] },)
+    assert_equal(%w[#md2pdf.cb.1 #md2pdf.cb.2x],
+                 anchors.map { |a| a['href'] },)
+    refute_includes html, '<input'
+  end
+
+  def test_editable_covers_raw_checkboxes_outside_task_lists
+    src = "| ok |\n|---|\n| <input type=\"checkbox\" checked> |\n"
+    html = render_html(src, editable: true)
+
+    assert_includes html, 'id="md2pdf.cb.1x"'
+    refute_includes html, '<input'
+  end
+
+  def test_editable_turns_raw_text_inputs_into_anchors
+    src = "Name: <input type=\"text\" size=\"30\">\n\nBare: <input>\n"
+    html = render_html(src, editable: true)
+    anchors = Nokogiri::HTML5.fragment(html).css('a.form-text')
+
+    assert_equal(%w[md2pdf.tx.1 md2pdf.tx.2],
+                 anchors.map { |a| a['id'] },)
+    assert_equal 'width: 30ch', anchors.first['style']
+    assert_nil anchors.last['style']
+    refute_includes html, '<input'
+  end
+
+  def test_inputs_stay_native_without_editable
+    html = render_html("- [ ] open\n\n<input type=\"text\">\n")
+
+    assert_includes html, '<input'
+    refute_includes html, 'form-checkbox'
+    refute_includes html, 'form-text'
+  end
+
+  def test_chain_omits_editable_fields_by_default
+    chain = Filters.chain(flat: false, toc: false)
+
+    assert_nil chain.index(Filters::EditableFields)
+  end
+
   # Demote
 
   def test_demote_turns_h2_into_bold_paragraph

@@ -31,9 +31,12 @@ module TestSupport
     }
     options = defaults.merge(options)
     flat = options.delete(:flat) || false
+    editable = options.delete(:editable) || false
     doc = Transpareo::Md2pdf::Document.from_markdown(text, **options)
     doc.apply(
-      Transpareo::Md2pdf::Filters.chain(flat: flat, toc: options[:toc]),
+      Transpareo::Md2pdf::Filters.chain(
+        flat: flat, toc: options[:toc], editable: editable,
+      ),
     )
     doc.to_html
   end

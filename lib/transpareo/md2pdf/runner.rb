@@ -53,7 +53,7 @@ module Transpareo
       def convert(md_path, flat:, unwrap:, toc: false, toc_depth: 2,
                   toc_label: nil, toc_min: TOC_MIN_H2,
                   toc_min_words: TOC_MIN_WORDS,
-                  footnotes_label: nil, locale: nil,
+                  footnotes_label: nil, locale: nil, editable: false,
                   output: nil, output_dir: nil, open: false,
                   style: {}, source_text: nil)
         source = source_text || read_file(md_path)
@@ -73,6 +73,7 @@ module Transpareo
           toc_label: toc_label,
           footnotes_label: footnotes_label,
           locale: locale,
+          editable: editable,
           basename: basename,
           base_dir: base_dir_for(md_path),
           css: Style.build(**with_footer_title(style, text)),
@@ -177,9 +178,14 @@ module Transpareo
         style.merge(footer_title: Document.title_of(text))
       end
 
+      def render(text, pdf_path, options)
+        print_passes(text, pdf_path, options)
+        attach_fields(text, pdf_path, options) if options[:editable]
+      end
+
       # Runs the second pass only when the first actually produced
       # destinations to resolve.
-      def render(text, pdf_path, options)
+      def print_passes(text, pdf_path, options)
         Dir.mktmpdir('md2pdf') do |tmpdir|
           html_path = File.join(tmpdir, 'doc.html')
 
@@ -195,6 +201,19 @@ module Transpareo
         end
       end
 
+      # In editable mode the page content draws every box empty and
+      # the checked state lives in the field, so if the fields
+      # cannot be added, checked boxes would print as unchecked. The
+      # fallback is a fresh static render, where Chromium draws the
+      # ticks and the native inputs.
+      def attach_fields(text, pdf_path, options)
+        FormFields.call(pdf_path)
+      rescue StandardError => e
+        warn 'md2pdf: could not add form fields, rendering a ' \
+             "static document: #{e.message}"
+        print_passes(text, pdf_path, options.merge(editable: false))
+      end
+
       def build_html(text, options, pages)
         doc = Document.from_markdown(
           text,
@@ -205,7 +224,10 @@ module Transpareo
           base_dir: options[:base_dir],
           toc_pages: pages,
         )
-        doc.apply(Filters.chain(flat: options[:flat], toc: options[:toc]))
+        doc.apply(Filters.chain(
+          flat: options[:flat], toc: options[:toc],
+          editable: options[:editable],
+        ))
         Renderer.document(
           body: doc.to_html,
           title: options[:basename],

@@ -13,6 +13,7 @@ require_relative 'md2pdf/document'
 require_relative 'md2pdf/filters'
 require_relative 'md2pdf/renderer'
 require_relative 'md2pdf/page_index'
+require_relative 'md2pdf/form_fields'
 require_relative 'md2pdf/style'
 require_relative 'md2pdf/runner'
 require_relative 'md2pdf/installer'
@@ -61,6 +62,7 @@ module Transpareo
         footnotes_label:
           cfg.fetch(:footnotes_label, labels[:footnotes_label]),
         locale: locale,
+        editable: cfg.fetch(:editable, false),
         output: cfg[:output],
         output_dir: cfg[:output_dir],
         open: cfg.fetch(:open, false),

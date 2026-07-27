@@ -16,7 +16,7 @@ module Transpareo
       KEYS = %i[
         locale locales
         flat unwrap toc toc_depth toc_label toc_min toc_min_words
-        footnotes_label
+        footnotes_label editable
         font_size line_height font_family code_font_family
         page_size margins
         output output_dir

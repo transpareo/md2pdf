@@ -58,6 +58,8 @@ module Transpareo
                                  Default 1500.
           --footnotes-label=TEXT Footnotes section heading text.
                                  Default per locale. Pass "" for none.
+          --editable             Checkboxes and text inputs become
+                                 fillable PDF form fields.
           --locale=CODE          Locale (en, de, fr, es, it, pt, nl).
                                  Auto-detected from filenames like
                                  foo.de.md; falls back to en.
@@ -109,6 +111,7 @@ module Transpareo
         '--flat' => :flat,
         '--single-heading' => :flat,
         '--unwrap' => :unwrap,
+        '--editable' => :editable,
         # Asking for a TOC explicitly means wanting one, so this
         # also clears the thresholds that would auto-skip it.
         '--toc' => { toc: true, toc_min: 0, toc_min_words: 0 },

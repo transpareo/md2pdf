@@ -88,6 +88,71 @@ class IntegrationTest < Minitest::Test
     end
   end
 
+  def test_editable_creates_fillable_checkbox_fields
+    in_document(tasks_source) do |md, dir|
+      capture_io { Transpareo::Md2pdf.convert(md, editable: true) }
+      fields = fields_of(File.join(dir, 'doc.pdf'))
+
+      assert_equal(%w[checkbox-1 checkbox-2],
+                   fields.map { |f| f[:T] },)
+      assert_equal(%i[Off Yes], fields.map { |f| f[:V] })
+      fields.each do |field|
+        assert_equal :Widget, field[:Subtype]
+        assert_operator field[:Rect][2] - field[:Rect][0], :>, 5
+      end
+    end
+  end
+
+  def test_editable_creates_text_fields_from_raw_inputs
+    source = "# Form\n\nName: <input type=\"text\" size=\"30\">\n"
+    in_document(source) do |md, dir|
+      capture_io { Transpareo::Md2pdf.convert(md, editable: true) }
+      fields = fields_of(File.join(dir, 'doc.pdf'))
+
+      assert_equal(['text-1'], fields.map { |f| f[:T] })
+      assert_equal :Tx, fields.first[:FT]
+      assert_includes fields.first[:DA], 'Helv'
+      assert_operator fields.first[:Rect][2] - fields.first[:Rect][0],
+                      :>, 100
+    end
+  end
+
+  def test_editable_defaults_to_a_static_document
+    in_document(tasks_source) do |md, dir|
+      capture_io { Transpareo::Md2pdf.convert(md) }
+
+      assert_empty fields_of(File.join(dir, 'doc.pdf'))
+    end
+  end
+
+  def test_editable_without_inputs_appends_nothing
+    in_document(short_source) do |md, dir|
+      capture_io { Transpareo::Md2pdf.convert(md, editable: true) }
+      pdf = File.join(dir, 'doc.pdf')
+
+      assert_empty fields_of(pdf)
+      assert_includes all_text(pdf).gsub(/\s+/, ''), 'Justaparagraph.'
+    end
+  end
+
+  def test_editable_falls_back_to_static_when_injection_fails
+    in_document(tasks_source) do |md, dir|
+      boom = lambda do |_pdf|
+        raise Transpareo::Md2pdf::Error, 'no room at the inn'
+      end
+      err = Transpareo::Md2pdf::FormFields.stub(:call, boom) do
+        capture_io do
+          Transpareo::Md2pdf.convert(md, editable: true)
+        end[1]
+      end
+      pdf = File.join(dir, 'doc.pdf')
+
+      assert_match(/static document/, err)
+      assert_empty fields_of(pdf)
+      assert_includes all_text(pdf), 'done'
+    end
+  end
+
   def test_missing_chromium_raises_a_helpful_error
     in_document(short_source) do |md, _dir|
       with_env('CHROMIUM' => '/definitely/not/a/browser',
@@ -114,6 +179,10 @@ class IntegrationTest < Minitest::Test
     "# Short\n\nJust a paragraph.\n"
   end
 
+  def tasks_source
+    "# Tasks\n\n- [ ] open\n- [x] done\n"
+  end
+
   def long_source
     sections = (1..8).map do |i|
       "## Section #{i}\n\n#{LONG_BODY}\n\n### Sub #{i}\n\nMore.\n"
@@ -127,5 +196,16 @@ class IntegrationTest < Minitest::Test
 
   def all_text(pdf)
     PDF::Reader.new(pdf).pages.map(&:text).join("\n")
+  end
+
+  # The form's field dictionaries, in declaration order; empty when
+  # the document declares no form at all.
+  def fields_of(pdf)
+    objects = PDF::Reader.new(pdf).objects
+    catalog = objects.deref(objects.trailer[:Root])
+    form = objects.deref(catalog[:AcroForm])
+    return [] unless form
+
+    Array(objects.deref(form[:Fields])).map { |f| objects.deref(f) }
   end
 end

@@ -271,7 +271,7 @@ Everything in GitHub Flavored Markdown, plus a few things beyond it.
 | Fenced code | Highlighted by Rouge, inline styles, self-contained |
 | Images | Local files inlined, so the PDF has no external refs |
 | Footnotes | Renumbered in reference order, duplicates merged |
-| Task lists | `- [ ]` and `- [x]` |
+| Task lists | `- [ ]` and `- [x]`; `--editable` makes them fillable form fields |
 | Strikethrough | `~~text~~` |
 | Autolinks | Bare URLs become links |
 | Fenced divs | `::: name` blocks become `<div class="name">`, for callouts and title-page control |
@@ -391,6 +391,45 @@ does not double up with the rendered one. The heading is set with
 `--footnotes-label="Sources"`, or omitted entirely with
 `--footnotes-label=""`.
 
+### Editable PDFs
+
+```sh
+md2pdf --editable document.md
+```
+
+With `--editable` (config key `editable`), the PDF stops being
+read-only: checkboxes and text inputs become real form fields that
+readers fill in any form-capable viewer and save. That fits any
+document a reader acts on rather than merely reads: worksheets,
+inspection reports, questionnaires, sign-off sheets. The rest of
+the document stays ordinary printed text.
+
+Two kinds of field are recognised:
+
+- **Checkboxes.** Every checkbox in the document, wherever it
+  stands. Task lists are the markdown way to write one, and
+  `- [x]` items start out checked; a raw
+  `<input type="checkbox">` works anywhere markdown allows HTML,
+  a table of approvals included.
+- **Text inputs.** Markdown has no syntax for a blank line to
+  write on, so these are the raw HTML element:
+  `<input type="text" size="40">` prints as an underlined blank
+  that wide (`size` counts characters) and becomes a field the
+  reader types into.
+
+No PDF library does the printing here and no browser can print a
+form field, so the fields are added to Chromium's output
+afterwards. Each input is rendered as an internal link, which
+survives printing as an annotation carrying the exact rectangle
+the element was laid out at; md2pdf then rewrites those
+annotations into form fields where they stand. The document is
+never re-laid-out and the fields sit precisely where the page
+shows them, whatever CSS moved them there.
+
+If the fields cannot be added, md2pdf warns and renders the
+document again with plain static inputs rather than shipping
+checked boxes that print as empty.
+
 ## Options reference
 
 Every flag, with the config key that sets the same thing. Flags
@@ -419,6 +458,7 @@ beat front matter, front matter beats `.md2pdf.yml`.
 | `--toc-min=N` | `toc-min` | `3` | H2s required before a TOC appears |
 | `--toc-min-words=N` | `toc-min-words` | `1500` | Words required before a TOC appears |
 | `--footnotes-label=TEXT` | `footnotes-label` | per locale | Footnotes heading; `""` renders the list with no heading |
+| `--editable` | `editable` | `false` | Checkboxes and text inputs become fillable PDF form fields |
 | `--locale=CODE` | `locale` | auto | Sets default labels and the `lang` attribute |
 | | `locales` | | Custom label sets, see below. Config only |
 

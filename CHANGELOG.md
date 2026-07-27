@@ -14,6 +14,16 @@ and a fresh `## [Unreleased]` opens above it.
 
 ### Added
 
+- `--editable` turns checkboxes and text inputs into fillable PDF
+  form fields. Chromium prints each input as an internal link
+  whose annotation carries the exact page rectangle; md2pdf
+  rewrites those annotations into AcroForm fields by appending an
+  incremental update, so nothing is re-laid-out. Task-list items
+  give checkboxes, `- [x]` starting checked, and any raw
+  `<input type="checkbox">` counts too; a raw
+  `<input type="text" size="N">` becomes an N-character underlined
+  blank the reader types into. If the fields cannot be added, the
+  document is re-rendered as a static document instead.
 - Images. Paths resolve relative to the markdown file rather than
   the working directory, and local files are embedded as data URIs
   so the finished PDF carries its own artwork. PNG, JPEG, GIF, SVG,
