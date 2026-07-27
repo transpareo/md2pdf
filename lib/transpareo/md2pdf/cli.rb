@@ -72,8 +72,9 @@ module Transpareo
           --custom-css=FILE      Append custom CSS to the stylesheet.
 
         Misc:
-          --open                 Open the generated PDF with xdg-open.
-                                 Only allowed for a single file.
+          --open                 Open the PDF in the default viewer
+                                 afterwards. Only allowed when a
+                                 single file is being converted.
           -v, --version          Show version and exit.
           -h, --help             Show this help and exit.
 

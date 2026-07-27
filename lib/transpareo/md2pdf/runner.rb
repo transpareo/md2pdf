@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'English'
+require 'shellwords'
 require 'tmpdir'
 require 'fileutils'
 
@@ -25,6 +26,15 @@ module Transpareo
         --no-pdf-header-footer
         --virtual-time-budget=2000
       ].freeze
+
+      # Whatever each desktop uses to hand a file to its default
+      # application. The empty argument after `start` is the window
+      # title, which cmd requires before it will accept a path.
+      OPENERS = {
+        macos: %w[open].freeze,
+        linux: %w[xdg-open].freeze,
+        windows: ['cmd', '/c', 'start', ''].freeze
+      }.freeze
 
       module_function
 
@@ -134,12 +144,32 @@ module Transpareo
       end
 
       def open_pdf(pdf_path)
+        command = opener
+        unless command
+          warn 'md2pdf: no way to open a PDF on this platform. ' \
+               'Set MD2PDF_OPENER to the command you use.'
+          return false
+        end
+
         pid = Process.spawn(
-          'xdg-open', pdf_path, out: File::NULL, err: File::NULL
+          *command, pdf_path, out: File::NULL, err: File::NULL
         )
         Process.detach(pid)
-      rescue Errno::ENOENT
-        warn 'md2pdf: xdg-open not found; cannot open the PDF'
+        true
+      rescue SystemCallError => e
+        warn "md2pdf: could not open the PDF: #{e.message}"
+        false
+      end
+
+      # MD2PDF_OPENER wins, so anyone whose desktop is not covered
+      # here, or who simply prefers another viewer, can say so. It
+      # has to name a real program: a shell alias or function is
+      # invisible to a spawned process.
+      def opener
+        override = ENV['MD2PDF_OPENER'].to_s.strip
+        return Shellwords.split(override) unless override.empty?
+
+        OPENERS[Platform.os]
       end
 
       # Counts H2s outside fenced code, so a `## ` line inside a

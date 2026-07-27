@@ -14,15 +14,6 @@ First release as a gem.
   the working directory, and local files are embedded as data URIs
   so the finished PDF carries its own artwork. PNG, JPEG, GIF, SVG,
   WebP, AVIF, BMP and ICO. Remote sources are left for the browser.
-- Relative `logo`, `custom-css`, `output` and `output-dir` paths
-  resolve against the file that declared them: a config file
-  against itself, front matter against its document, a flag against
-  the shell. Previously all were resolved against the working
-  directory, so a committed `.md2pdf.yml` only worked when run from
-  one particular place.
-- The path printed after each render is now absolute, so it says
-  where the file landed rather than leaving the reader to resolve
-  it against a directory they have to guess.
 - A `locales:` block in the config file overrides the built-in
   label sets and defines locales that are not built in. Filename
   detection recognises configured codes, so `handbok.sv.md` picks
@@ -35,6 +26,12 @@ First release as a gem.
 - Syntax highlighting actually renders. Previous versions emitted
   highlight markup that no stylesheet matched, so every code block
   printed monochrome.
+- Fenced divs of any name: `::: warning` becomes
+  `<div class="warning">`, so `--custom-css` can style callouts,
+  admonitions and pull quotes. `::: intro` keeps its special
+  meaning for the title page.
+- `MD2PDF_OPENER` overrides the viewer `--open` launches, and may
+  carry arguments.
 - `--version` flag.
 - Library entry point `Transpareo::Md2pdf.convert(path, **options)`.
 
@@ -56,6 +53,18 @@ First release as a gem.
 
 ### Fixed
 
+- Relative `logo`, `custom-css`, `output` and `output-dir` paths
+  resolve against the file that declared them: a config file
+  against itself, front matter against its document, a flag against
+  the shell. Previously all were resolved against the working
+  directory, so a committed `.md2pdf.yml` only worked when run from
+  one particular place.
+- The path printed after each render is now absolute, so it says
+  where the file landed rather than leaving the reader to resolve
+  it against a directory they have to guess.
+- `--open` hardcoded `xdg-open`, so it warned and did nothing on
+  macOS, a platform this gem ships Chromium builds for. It now uses
+  `open` on macOS, `xdg-open` on Linux and `start` on Windows.
 - `Transpareo::Md2pdf.convert` ignored `.md2pdf.yml` and front
   matter entirely, and produced an unlabelled table of contents and
   footnotes section, because settings resolution lived in the CLI.

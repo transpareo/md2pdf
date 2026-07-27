@@ -115,7 +115,7 @@ Everything in GitHub Flavored Markdown, plus a few things beyond it.
 | Task lists | `- [ ]` and `- [x]` |
 | Strikethrough | `~~text~~` |
 | Autolinks | Bare URLs become links |
-| Fenced divs | `::: intro` blocks, for title-page control |
+| Fenced divs | `::: name` blocks become `<div class="name">`, for callouts and title-page control |
 | Front matter | An `md2pdf:` YAML block, stripped before rendering |
 
 ### Images
@@ -134,6 +134,45 @@ PNG, JPEG, GIF, SVG, WebP, AVIF, BMP and ICO are recognised.
 Remote `http(s)` sources are left for the browser to fetch, so they
 need network access at render time. A missing or unreadable image
 warns and is skipped rather than failing the whole document.
+
+### Fenced divs and callouts
+
+Any `::: name` block becomes `<div class="name">` around whatever
+it contains, and the markdown inside is parsed normally. Pair that
+with `--custom-css` and you have callouts, admonitions, pull
+quotes, or anything else your stylesheet cares to define:
+
+```markdown
+::: warning
+
+**Do not** run this against production. The migration is not
+reversible.
+
+:::
+```
+
+```css
+/* passed with --custom-css */
+.warning {
+  border-left: 3px solid #c0392b;
+  background: #fdf2f0;
+  padding: 0.8em 1em;
+  page-break-inside: avoid;
+}
+```
+
+The class name is taken verbatim, so `::: note`, `::: tip` and
+`::: aside` all work without md2pdf knowing anything about them.
+Pandoc's brace form, `::: {.note}`, is accepted too. Blocks nest,
+and an unclosed block is closed at the end of the document rather
+than swallowing the rest of it.
+
+`::: intro` is the one name md2pdf treats specially: it suppresses
+the centered title page, so the introduction flows on page 1 right
+after the title. See [Title page](#title-page).
+
+A `:::` inside a fenced code block is left alone, so documentation
+about fenced divs survives being documented.
 
 ### Table of contents
 
@@ -284,7 +323,7 @@ See [Using your own logo](#using-your-own-logo) below.
 
 | Flag | Description |
 |---|---|
-| `--open` | Open the PDF with `xdg-open` afterwards. Rejected when more than one file would be converted |
+| `--open` | Open the PDF in your default viewer afterwards, using `open` on macOS, `xdg-open` on Linux and `start` on Windows. Rejected when more than one file would be converted |
 | `-v`, `--version` | Print the version and exit |
 | `-h`, `--help` | Print help and exit |
 
@@ -420,7 +459,14 @@ md2pdf:
 CHROMIUM=/usr/bin/chromium          Browser override
 MD2PDF_LOGO=/path/to/logo.svg       Default for --logo
 MD2PDF_HOME=~/.local/share/md2pdf   Managed install directory
+MD2PDF_OPENER=zathura               Viewer used by --open
 ```
+
+`MD2PDF_OPENER` overrides the per-platform default and may carry
+arguments, as in `MD2PDF_OPENER="flatpak run org.gnome.Evince"`. It
+must name a real program: a shell alias or function is invisible to
+a spawned process, so aliasing `open` in your shell will not reach
+md2pdf.
 
 ## Docker
 
