@@ -199,8 +199,7 @@ module Transpareo
           @offsets = {}
           @next_id = FormFields.next_id(@objects)
           add_shared
-          add_radio_parents
-          add_widgets
+          add_fields
           add_catalog
           finish
         end
@@ -314,49 +313,80 @@ module Transpareo
           }
         end
 
-        # The group is one field: the parent carries the group name
-        # and value, the widgets are its kids.
-        def add_radio_parents
-          @parents = {}
-          radio_groups.each do |group, members|
-            id = alloc
-            @parents[group] = FormFields.ref(id)
-            add(id, FormFields.ser(parent_field(group, members)))
+        # Widgets that share one manifest entry are one field seen
+        # in several places: Chromium reprints a table header on
+        # every page its table breaks across, so the header's
+        # controls print again with the same destination. Each such
+        # cluster becomes one parent field with the widgets as
+        # kids, the radio-group shape, so a value edited anywhere
+        # updates every appearance. Two standalone fields with one
+        # name would instead go stale wherever they were not
+        # edited. Radio groups cluster by group name, everything
+        # else by field name.
+        def add_fields
+          @tops = []
+          clusters.each_value do |members|
+            if members.first[:kind] == :radio
+              add_group(members, radio_parent(members))
+            elsif members.size > 1
+              add_group(members, cluster_parent(members))
+            else
+              add_single(members.first)
+            end
           end
         end
 
-        def radio_groups
-          @fields.select { |field| field[:kind] == :radio }
-            .group_by { |field| field[:group] }
+        def clusters
+          @fields.group_by do |field|
+            if field[:kind] == :radio
+              [:radio, field[:group]]
+            else
+              [field[:kind], field[:name]]
+            end
+          end
         end
 
-        def parent_field(group, members)
+        def add_single(field)
+          @tops << field[:ref]
+          merged = widget_base(field)
+            .merge(field_part(field))
+            .merge(mark_part(field))
+          add(field[:ref].id, FormFields.ser(merged))
+        end
+
+        def add_group(members, parent_dict)
+          id = alloc
+          parent = FormFields.ref(id)
+          @tops << parent
+          add(id, FormFields.ser(parent_dict))
+          members.each do |field|
+            kid = widget_base(field)
+              .merge(Parent: parent)
+              .merge(mark_part(field))
+            add(field[:ref].id, FormFields.ser(kid))
+          end
+        end
+
+        # The parent carries the field's identity - name, value,
+        # kind - and the kids only their looks and places.
+        def cluster_parent(members)
+          field_part(members.first)
+            .merge(Kids: members.map { |member| member[:ref] })
+        end
+
+        def radio_parent(members)
           checked = members.find { |member| member[:checked] }
           {
             FT: :Btn,
-            T: group,
+            T: members.first[:group],
             Ff: 32_768,
             V: checked ? checked[:export].to_sym : :Off,
             Kids: members.map { |member| member[:ref] },
           }
         end
 
-        def add_widgets
-          @fields.each do |field|
-            add(field[:ref].id, FormFields.ser(widget(field)))
-          end
-        end
-
-        def widget(field)
-          specific =
-            case field[:kind]
-            when :checkbox then checkbox_widget(field)
-            when :radio then radio_widget(field)
-            when :textarea then textarea_widget(field)
-            when :select then select_widget(field)
-            else text_widget(field)
-            end
-          base = {
+        def widget_base(field)
+          {
             Type: :Annot,
             Subtype: :Widget,
             F: 4,
@@ -364,70 +394,85 @@ module Transpareo
             P: field[:page],
             BS: { W: 0 },
           }
-          merged = base.merge(specific)
-          merged[:Q] = QUADDING[field[:align]] if field[:align]
-          merged
         end
 
-        def checkbox_widget(field)
-          state = field[:checked] ? :Yes : :Off
-          faces = @faces[:checkbox]
+        def field_part(field)
+          part =
+            case field[:kind]
+            when :checkbox then checkbox_field(field)
+            when :textarea then textarea_field(field)
+            when :select then select_field(field)
+            else text_field(field)
+            end
+          part[:Q] = QUADDING[field[:align]] if field[:align]
+          part
+        end
+
+        def mark_part(field)
+          case field[:kind]
+          when :checkbox then checkbox_mark(field)
+          when :radio then radio_mark(field)
+          when :textarea then {}
+          else value_mark(field)
+          end
+        end
+
+        def checkbox_field(field)
           {
             FT: :Btn,
             T: field[:name],
-            V: state,
+            V: field[:checked] ? :Yes : :Off,
+          }
+        end
+
+        def checkbox_mark(field)
+          state = field[:checked] ? :Yes : :Off
+          faces = @faces[:checkbox]
+          {
             AS: state,
             AP: { N: { Yes: faces[:on], Off: faces[:off] } },
           }
         end
 
         # Kids carry no name or value of their own; the parent does.
-        def radio_widget(field)
+        def radio_mark(field)
           export = field[:export].to_sym
           faces = @faces[:radio]
           {
-            Parent: @parents[field[:group]],
             AS: field[:checked] ? export : :Off,
             AP: { N: { export => faces[:on], Off: faces[:off] } },
           }
         end
 
-        def text_widget(field)
-          value = pdf_text(field[:value])
-          spec = {
-            FT: :Tx,
-            T: field[:name],
-            V: value,
-            DA: da_for(field),
-          }
-          ap = value_appearance(field, value)
-          spec[:AP] = { N: ap } if ap
-          spec
-        end
-
-        def textarea_widget(field)
+        def text_field(field)
           {
             FT: :Tx,
             T: field[:name],
-            V: '',
+            V: pdf_text(field[:value]),
             DA: da_for(field),
-            Ff: 4096,
           }
         end
 
-        def select_widget(field)
-          value = pdf_text(field[:value])
-          spec = {
+        def textarea_field(field)
+          text_field(field).merge(V: '', Ff: 4096)
+        end
+
+        # A drawn appearance for the widget's own rectangle, when
+        # the field carries a value to show.
+        def value_mark(field)
+          ap = value_appearance(field, pdf_text(field[:value]))
+          ap ? { AP: { N: ap } } : {}
+        end
+
+        def select_field(field)
+          {
             FT: :Ch,
             T: field[:name],
-            V: value,
+            V: pdf_text(field[:value]),
             Opt: field[:options].map { |opt| pdf_text(opt) },
             DA: da_for(field),
             Ff: 131_072,
           }
-          ap = value_appearance(field, value)
-          spec[:AP] = { N: ap } if ap
-          spec
         end
 
         def rect_for(field)
@@ -585,12 +630,9 @@ module Transpareo
           add(root.id, FormFields.ser(catalog))
         end
 
-        # Radio kids stay out of /Fields; their parents stand in.
+        # Kid widgets stay out of /Fields; their parents stand in.
         def acro_form
-          tops = @parents.values +
-                 @fields.reject { |field| field[:kind] == :radio }
-                   .map { |field| field[:ref] }
-          form = { Fields: tops }
+          form = { Fields: @tops }
           if @font_id
             form[:DA] = da
             form[:DR] = { Font: { F1: FormFields.ref(@font_id) } }

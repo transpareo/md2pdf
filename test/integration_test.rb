@@ -189,6 +189,39 @@ class IntegrationTest < Minitest::Test
     end
   end
 
+  def test_repeated_table_headers_share_one_field
+    rows = (1..60).map { |i| "| row #{i} | x |" }.join("\n")
+    source = <<~MD
+      # Comparison
+
+      | <input value="Col"> | Criterion |
+      |---|---|
+      #{rows}
+    MD
+    in_document(source) do |md, dir|
+      capture_io { Transpareo::Md2pdf.convert(md, editable: true) }
+      objects = PDF::Reader.new(File.join(dir, 'doc.pdf')).objects
+      catalog = objects.deref(objects.trailer[:Root])
+      form = objects.deref(catalog[:AcroForm])
+      fields = Array(objects.deref(form[:Fields]))
+        .map { |ref| objects.deref(ref) }
+      shared = fields.find { |f| f[:T] == 'text-1' }
+
+      assert_equal 1, fields.count { |f| f[:T] == 'text-1' },
+                   'repeated header must not duplicate the field'
+      kids = Array(objects.deref(shared[:Kids]))
+
+      assert_operator kids.size, :>=, 2,
+                      'expected one widget per printed header'
+      kids.each do |kid_ref|
+        kid = objects.deref(kid_ref)
+
+        assert_nil kid[:T], 'kid widgets carry no name'
+        assert kid[:AP], 'each kid draws the prefill in its place'
+      end
+    end
+  end
+
   def test_editable_defaults_to_a_static_document
     in_document(tasks_source) do |md, dir|
       capture_io { Transpareo::Md2pdf.convert(md) }
