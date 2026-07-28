@@ -88,6 +88,68 @@ class FiltersTest < Minitest::Test
     refute_includes html, '<input'
   end
 
+  def test_editable_turns_textareas_into_block_anchors
+    src = "Notes:\n\n<textarea rows=\"4\" cols=\"50\"></textarea>\n"
+    html = render_html(src, editable: true)
+    anchor = Nokogiri::HTML5.fragment(html).at_css('a.form-textarea')
+
+    assert_equal 'height: 6.5em; width: 50ch', anchor['style']
+    refute_includes html, '<textarea'
+  end
+
+  def test_editable_warns_on_textarea_default_text
+    html = nil
+    _, err = capture_io do
+      html = render_html("<textarea>preset</textarea>\n",
+                         editable: true,)
+    end
+
+    assert_match(/textarea default text/, err)
+    refute_includes html, 'preset'
+  end
+
+  def test_editable_records_select_options_and_selection
+    src = '<select><option>North</option>' \
+          "<option selected>South</option></select>\n"
+    doc = Document.from_markdown(src)
+    doc.apply([Filters::EditableFields])
+    spec = doc.fields['md2pdf.f.1']
+
+    assert_equal :select, spec[:kind]
+    assert_equal %w[North South], spec[:options]
+    assert_equal 'South', spec[:value]
+    assert_includes doc.fragment.to_html, 'form-select'
+  end
+
+  def test_editable_leaves_multiple_selects_alone
+    src = "<select multiple><option>a</option></select>\n"
+    html = render_html(src, editable: true)
+
+    assert_includes html, '<select'
+    refute_includes html, 'form-select'
+  end
+
+  def test_editable_groups_radios_and_dedupes_exports
+    src = '<input type="radio" name="sev" value="a!"> ' \
+          '<input type="radio" name="sev" value="a!" checked> ' \
+          '<input type="radio">'
+    doc = Document.from_markdown(src)
+    doc.apply([Filters::EditableFields])
+    specs = doc.fields.values
+
+    assert_equal(%w[sev sev radio-3], specs.map { |s| s[:group] })
+    assert_equal(%w[a- a--1 choice], specs.map { |s| s[:export] })
+    assert_equal([false, true, false],
+                 specs.map { |s| s[:checked] },)
+  end
+
+  def test_editable_records_text_input_defaults
+    doc = Document.from_markdown("<input value=\"Jane\">\n")
+    doc.apply([Filters::EditableFields])
+
+    assert_equal 'Jane', doc.fields['md2pdf.f.1'][:value]
+  end
+
   def test_editable_fields_record_a_manifest
     src = "- [ ] open\n- [x] done\n\nName: <input size=\"5\">\n"
     doc = Document.from_markdown(src)

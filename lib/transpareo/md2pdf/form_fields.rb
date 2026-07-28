@@ -15,16 +15,24 @@ module Transpareo
     # numbers: the pages are never touched, and only the catalog is
     # replaced to declare the form. A reader that ignores the update
     # still sees the original static document.
+    #
+    # Radio widgets become kids of one parent field per group.
+    # Prefilled values are drawn as real appearance streams rather
+    # than left to /NeedAppearances, which poppler ignores for
+    # buttons; and every widget carries a zero-width border so no
+    # viewer draws its own frame inside the printed one.
     module FormFields
       # Text-field rectangles are inset relative to the printed box:
       # the left inset pads typed text away from the printed border,
       # and the downward shift settles the viewer's vertically
-      # centred text just above the printed rule, the way writing
-      # sits on a ruled line, without floating up to the box centre.
-      # Checkboxes keep the printed box exactly, so the tick lands
-      # inside it.
+      # centred text just above the printed rule. Textareas inset
+      # all four edges, their text filling top to bottom; selects
+      # only pad the left. Checkboxes and radios keep the printed
+      # box exactly, so the mark lands inside it.
       TEXT_PAD_LEFT = 3.0
       TEXT_DROP = 0.5
+      TEXTAREA_INSET = 2.0
+      SELECT_PAD_LEFT = 2.5
 
       module_function
 
@@ -41,8 +49,7 @@ module Transpareo
         fields = editable_annotations(objects, manifest)
         return 0 if fields.empty?
 
-        default_da = default_appearance(font_size)
-        revision = update(bytes, objects, fields, default_da)
+        revision = Update.new(bytes, objects, fields, font_size).render
         File.binwrite(pdf_path, bytes + revision)
         fields.size
       end
@@ -77,162 +84,20 @@ module Transpareo
         end
       end
 
-      # One point under the body size, so typed text reads as part
-      # of the document without crowding the box. CSS pt survive
-      # printing one to one, no px scale factor involved.
-      def default_appearance(font_size)
-        body = font_size.to_s.to_f
-        body = 11.0 unless body.positive?
-        "/Helv #{format('%g', body - 1)} Tf 0 g"
+      # CSS pt survive printing one to one, no px scale factor.
+      def body_size(font_size)
+        size = font_size.to_s.to_f
+        size.positive? ? size : 11.0
       end
 
-      # The appended revision: the shared objects each field kind
-      # needs, one widget per field reusing the link's object
-      # number, the catalog with the form declaration, and the
-      # cross-reference section that makes them current.
-      def update(bytes, objects, fields, default_da)
-        out = +''
-        out << "\n" unless bytes.end_with?("\n")
-        offsets = {}
-        add = lambda do |number, body|
-          offsets[number] = bytes.bytesize + out.bytesize
-          out << "#{number} 0 obj\n#{body}\nendobj\n"
-        end
-
-        ids = allocate_ids(objects, fields)
-        add_objects(add, objects, fields, ids, default_da)
-
-        xref_at = bytes.bytesize + out.bytesize
-        out << xref_table(offsets)
-        out << trailer(objects, offsets, prev_offset(bytes), xref_at)
-      end
-
-      # Object numbers for the shared objects: checkbox appearance
-      # streams when there are checkboxes, the font when there are
-      # text fields.
-      def allocate_ids(objects, fields)
-        kinds = fields.map { |field| field[:kind] }.uniq
-        ids = {}
-        id = next_id(objects)
-        if kinds.include?(:checkbox)
-          ids[:yes] = id
-          ids[:off] = id + 1
-          id += 2
-        end
-        ids[:font] = id if kinds.include?(:text)
-        ids
-      end
-
-      def add_objects(add, objects, fields, ids, default_da)
-        add_shared(add, fields, ids)
-        fields.each do |field|
-          add.call(field[:ref].id, ser(widget(field, ids, default_da)))
-        end
-        catalog = form_catalog(objects, fields, ids, default_da)
-        add.call(objects.trailer[:Root].id, ser(catalog))
-      end
-
-      # The checkbox rectangles all come from one CSS rule, and a
-      # viewer scales an appearance's BBox to its widget's Rect
-      # anyway, so one on/off pair serves every checkbox.
-      def add_shared(add, fields, ids)
-        add_checkbox_appearances(add, fields, ids) if ids[:yes]
-        add.call(ids[:font], ser(helvetica)) if ids[:font]
-      end
-
-      def add_checkbox_appearances(add, fields, ids)
-        box = fields.find { |field| field[:kind] == :checkbox }
-        width = box[:rect][2] - box[:rect][0]
-        height = box[:rect][3] - box[:rect][1]
-        on = appearance(width, height, tick(width, height))
-        add.call(ids[:yes], on)
-        add.call(ids[:off], appearance(width, height, ''))
-      end
-
-      def widget(field, ids, default_da)
-        specific = if field[:kind] == :checkbox
-                     checkbox_widget(field, ids)
-                   else
-                     text_widget(field, default_da)
-                   end
-        base = {
-          Type: :Annot,
-          Subtype: :Widget,
-          F: 4,
-          Rect: rect_for(field),
-          P: field[:page],
-        }
-        base.merge(specific)
-      end
-
-      def rect_for(field)
-        return field[:rect] unless field[:kind] == :text
-
-        x1, y1, x2, y2 = field[:rect]
-        [x1 + TEXT_PAD_LEFT, y1 - TEXT_DROP, x2, y2 - TEXT_DROP]
-      end
-
-      def checkbox_widget(field, ids)
-        state = field[:checked] ? :Yes : :Off
-        {
-          FT: :Btn,
-          T: field[:name],
-          V: state,
-          AS: state,
-          AP: { N: { Yes: ref(ids[:yes]), Off: ref(ids[:off]) } },
-        }
-      end
-
-      # No appearance stream: the field starts empty, and viewers
-      # build the appearance from /DA once someone types.
-      def text_widget(field, default_da)
-        { FT: :Tx, T: field[:name], V: '', DA: default_da }
-      end
-
-      # A form XObject drawn with plain path operators, so no font
-      # resources are needed. The empty variant is the unchecked
-      # state: the box outline is already part of the page content,
-      # printed from the filter's CSS, and stays visible under a
-      # transparent appearance.
-      def appearance(width, height, content)
-        dict = {
-          Type: :XObject,
-          Subtype: :Form,
-          FormType: 1,
-          BBox: [0, 0, width, height],
-          Resources: {},
-          Length: content.bytesize,
-        }
-        "#{ser(dict)}\nstream\n#{content}\nendstream"
-      end
-
-      def tick(width, height)
-        format(
-          'q %.2f w 1 J 1 j 0.15 0.15 0.15 RG ' \
-          '%.2f %.2f m %.2f %.2f l %.2f %.2f l S Q',
-          width * 0.12,
-          width * 0.22, height * 0.52,
-          width * 0.42, height * 0.28,
-          width * 0.78, height * 0.72,
-        )
-      end
-
+      # WinAnsi, so umlauts and friends survive the base font.
       def helvetica
-        { Type: :Font, Subtype: :Type1, BaseFont: :Helvetica }
-      end
-
-      # The replacement catalog: everything the original said, plus
-      # the form declaration listing every widget. Text fields need
-      # the form-level font resource their /DA names.
-      def form_catalog(objects, fields, ids, default_da)
-        form = { Fields: fields.map { |field| field[:ref] } }
-        if ids[:font]
-          form[:DA] = default_da
-          form[:DR] = { Font: { Helv: ref(ids[:font]) } }
-        end
-        catalog = objects.deref(objects.trailer[:Root]).dup
-        catalog[:AcroForm] = form
-        catalog
+        {
+          Type: :Font,
+          Subtype: :Type1,
+          BaseFont: :Helvetica,
+          Encoding: :WinAnsiEncoding,
+        }
       end
 
       # The trailer's /Size is the conventional answer, but it is
@@ -280,14 +145,348 @@ module Transpareo
         when Array then "[#{value.map { |v| ser(v) }.join(' ')}]"
         when Symbol then "/#{value}"
         when PDF::Reader::Reference then "#{value.id} #{value.gen} R"
-        when String then "(#{value.gsub(/[\\()]/) { |c| "\\#{c}" }})"
+        when String then "(#{escape(value)})"
         when Integer, Float, true, false then value.to_s
         else raise Error, "cannot write #{value.class} into a PDF"
         end
       end
 
+      # Literal-string escaping for the characters PDF treats
+      # specially.
+      def escape(text)
+        text.gsub(/[\\()]/) { |char| "\\#{char}" }
+      end
+
       def ref(number)
         PDF::Reader::Reference.new(number, 0)
+      end
+
+      # Builds the appended revision for one set of fields. An
+      # instance owns the growing byte string and the object-number
+      # counter, which a pile of threaded parameters kept obscuring.
+      class Update
+        def initialize(bytes, objects, fields, font_size)
+          @bytes = bytes
+          @objects = objects
+          @fields = fields
+          @size = FormFields.body_size(font_size) - 1
+        end
+
+        def render
+          @out = +''.b
+          @out << "\n" unless @bytes.end_with?("\n")
+          @offsets = {}
+          @next_id = FormFields.next_id(@objects)
+          add_shared
+          add_radio_parents
+          add_widgets
+          add_catalog
+          finish
+        end
+
+        private
+
+        def kinds
+          @kinds ||= @fields.map { |field| field[:kind] }.uniq
+        end
+
+        def alloc
+          id = @next_id
+          @next_id += 1
+          id
+        end
+
+        def add(number, body)
+          @offsets[number] = @bytes.bytesize + @out.bytesize
+          @out << "#{number} 0 obj\n#{body}\nendobj\n"
+        end
+
+        def font_needed?
+          kinds.intersect?(%i[text textarea select])
+        end
+
+        def add_shared
+          add_font if font_needed?
+          @faces = {}
+          add_faces(:checkbox) { |w, h| tick(w, h) }
+          add_faces(:radio) { |w, _h| dot(w) }
+        end
+
+        def add_font
+          @font_id = alloc
+          add(@font_id, FormFields.ser(FormFields.helvetica))
+        end
+
+        # One on/off appearance pair serves every mark of a kind:
+        # the boxes all come from one CSS rule, and a viewer scales
+        # a stream's BBox to its widget's Rect anyway.
+        def add_faces(kind)
+          box = @fields.find { |field| field[:kind] == kind }
+          return unless box
+
+          width = box[:rect][2] - box[:rect][0]
+          height = box[:rect][3] - box[:rect][1]
+          on_id = alloc
+          off_id = alloc
+          add(on_id, stream(width, height, yield(width, height)))
+          add(off_id, stream(width, height, ''))
+          @faces[kind] = {
+            on: FormFields.ref(on_id),
+            off: FormFields.ref(off_id),
+          }
+        end
+
+        # The group is one field: the parent carries the group name
+        # and value, the widgets are its kids.
+        def add_radio_parents
+          @parents = {}
+          radio_groups.each do |group, members|
+            id = alloc
+            @parents[group] = FormFields.ref(id)
+            add(id, FormFields.ser(parent_field(group, members)))
+          end
+        end
+
+        def radio_groups
+          @fields.select { |field| field[:kind] == :radio }
+            .group_by { |field| field[:group] }
+        end
+
+        def parent_field(group, members)
+          checked = members.find { |member| member[:checked] }
+          {
+            FT: :Btn,
+            T: group,
+            Ff: 32_768,
+            V: checked ? checked[:export].to_sym : :Off,
+            Kids: members.map { |member| member[:ref] },
+          }
+        end
+
+        def add_widgets
+          @fields.each do |field|
+            add(field[:ref].id, FormFields.ser(widget(field)))
+          end
+        end
+
+        def widget(field)
+          specific =
+            case field[:kind]
+            when :checkbox then checkbox_widget(field)
+            when :radio then radio_widget(field)
+            when :textarea then textarea_widget(field)
+            when :select then select_widget(field)
+            else text_widget(field)
+            end
+          base = {
+            Type: :Annot,
+            Subtype: :Widget,
+            F: 4,
+            Rect: rect_for(field),
+            P: field[:page],
+            BS: { W: 0 },
+          }
+          base.merge(specific)
+        end
+
+        def checkbox_widget(field)
+          state = field[:checked] ? :Yes : :Off
+          faces = @faces[:checkbox]
+          {
+            FT: :Btn,
+            T: field[:name],
+            V: state,
+            AS: state,
+            AP: { N: { Yes: faces[:on], Off: faces[:off] } },
+          }
+        end
+
+        # Kids carry no name or value of their own; the parent does.
+        def radio_widget(field)
+          export = field[:export].to_sym
+          faces = @faces[:radio]
+          {
+            Parent: @parents[field[:group]],
+            AS: field[:checked] ? export : :Off,
+            AP: { N: { export => faces[:on], Off: faces[:off] } },
+          }
+        end
+
+        def text_widget(field)
+          value = pdf_text(field[:value])
+          spec = {
+            FT: :Tx,
+            T: field[:name],
+            V: value,
+            DA: da,
+          }
+          ap = value_appearance(field, value)
+          spec[:AP] = { N: ap } if ap
+          spec
+        end
+
+        def textarea_widget(field)
+          {
+            FT: :Tx,
+            T: field[:name],
+            V: '',
+            DA: da,
+            Ff: 4096,
+          }
+        end
+
+        def select_widget(field)
+          value = pdf_text(field[:value])
+          spec = {
+            FT: :Ch,
+            T: field[:name],
+            V: value,
+            Opt: field[:options].map { |opt| pdf_text(opt) },
+            DA: da,
+            Ff: 131_072,
+          }
+          ap = value_appearance(field, value)
+          spec[:AP] = { N: ap } if ap
+          spec
+        end
+
+        def rect_for(field)
+          x1, y1, x2, y2 = field[:rect]
+          case field[:kind]
+          when :text
+            [x1 + TEXT_PAD_LEFT, y1 - TEXT_DROP, x2, y2 - TEXT_DROP]
+          when :textarea
+            [x1 + TEXTAREA_INSET, y1 + TEXTAREA_INSET,
+             x2 - TEXTAREA_INSET, y2 - TEXTAREA_INSET,]
+          when :select
+            [x1 + SELECT_PAD_LEFT, y1, x2, y2]
+          else
+            field[:rect]
+          end
+        end
+
+        # Prefilled values are drawn once, here, so no viewer ever
+        # has to synthesize an appearance for the pristine document.
+        def value_appearance(field, value)
+          return nil if value.empty?
+
+          x1, y1, x2, y2 = rect_for(field)
+          content = "BT /Helv #{fmt(@size)} Tf 0.5 " \
+                    "#{fmt(baseline(field, y2 - y1))} Td " \
+                    "(#{FormFields.escape(value)}) Tj ET"
+          id = alloc
+          add(id, stream(x2 - x1, y2 - y1, content, font: true))
+          FormFields.ref(id)
+        end
+
+        # A boxed control centres its text; an underline field sits
+        # just above the rule, leaving descender room.
+        def baseline(field, height)
+          return (height - (@size * 0.72)) / 2 if field[:kind] == :select
+
+          @size * 0.2
+        end
+
+        def da
+          @da ||= "/Helv #{fmt(@size)} Tf 0 g"
+        end
+
+        # Helvetica is written with WinAnsi encoding, so values are
+        # transcoded to it; anything it cannot carry is replaced
+        # rather than silently mangled.
+        def pdf_text(value)
+          text = value.to_s
+          encoded = text.encode('Windows-1252',
+                                invalid: :replace,
+                                undef: :replace,
+                                replace: '?',)
+          if encoded.include?('?') && !text.include?('?')
+            warn "md2pdf: field text reduced to Latin script: #{text}"
+          end
+          encoded.force_encoding(Encoding::BINARY)
+        end
+
+        def stream(width, height, content, font: false)
+          resources = {}
+          resources = { Font: { Helv: FormFields.ref(@font_id) } } if
+            font
+          dict = {
+            Type: :XObject,
+            Subtype: :Form,
+            FormType: 1,
+            BBox: [0, 0, width, height],
+            Resources: resources,
+            Length: content.bytesize,
+          }
+          "#{FormFields.ser(dict)}\nstream\n#{content}\nendstream"
+        end
+
+        def tick(width, height)
+          format(
+            'q %.2f w 1 J 1 j 0.15 0.15 0.15 RG ' \
+            '%.2f %.2f m %.2f %.2f l %.2f %.2f l S Q',
+            width * 0.12,
+            width * 0.22, height * 0.52,
+            width * 0.42, height * 0.28,
+            width * 0.78, height * 0.72,
+          )
+        end
+
+        # A filled dot approximated with four beziers; the tangent
+        # runs at 0.152 of the width for a quarter circle of this
+        # radius.
+        def dot(width)
+          mid = width * 0.5
+          high = mid + (width * 0.22)
+          low = mid - (width * 0.22)
+          lean_up = mid + (width * 0.152)
+          lean_dn = mid - (width * 0.152)
+          format(
+            'q 0.15 0.15 0.15 rg %.2f %.2f m ' \
+            '%.2f %.2f %.2f %.2f %.2f %.2f c ' \
+            '%.2f %.2f %.2f %.2f %.2f %.2f c ' \
+            '%.2f %.2f %.2f %.2f %.2f %.2f c ' \
+            '%.2f %.2f %.2f %.2f %.2f %.2f c f Q',
+            high, mid,
+            high, lean_up, lean_up, high, mid, high,
+            lean_dn, high, low, lean_up, low, mid,
+            low, lean_dn, lean_dn, low, mid, low,
+            lean_up, low, high, lean_dn, high, mid,
+          )
+        end
+
+        def fmt(number)
+          format('%g', number.round(2))
+        end
+
+        def add_catalog
+          root = @objects.trailer[:Root]
+          catalog = @objects.deref(root).dup
+          catalog[:AcroForm] = acro_form
+          add(root.id, FormFields.ser(catalog))
+        end
+
+        # Radio kids stay out of /Fields; their parents stand in.
+        def acro_form
+          tops = @parents.values +
+                 @fields.reject { |field| field[:kind] == :radio }
+                   .map { |field| field[:ref] }
+          form = { Fields: tops }
+          if @font_id
+            form[:DA] = da
+            form[:DR] = { Font: { Helv: FormFields.ref(@font_id) } }
+          end
+          form
+        end
+
+        def finish
+          xref_at = @bytes.bytesize + @out.bytesize
+          @out << FormFields.xref_table(@offsets)
+          @out << FormFields.trailer(@objects, @offsets,
+                                     FormFields.prev_offset(@bytes),
+                                     xref_at,)
+          @out
+        end
       end
     end
   end

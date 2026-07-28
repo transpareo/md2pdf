@@ -50,9 +50,6 @@ Metrics/ModuleLength:
 Metrics/MethodLength:
   Max: 25
 
-Metrics/AbcSize:
-  Max: 25
-
 Metrics/CyclomaticComplexity:
   Max: 12
 
@@ -69,8 +66,17 @@ Metrics/BlockLength:
     - '*.gemspec'
 
 # A test class covering one unit is allowed to be long; splitting it
-# to satisfy a line count would scatter related cases.
+# to satisfy a line count would scatter related cases. The form
+# revision builder is one cohesive writer whose methods are already
+# small; a split there would only scatter the PDF plumbing.
 Metrics/ClassLength:
+  Exclude:
+    - 'test/**/*'
+    - 'lib/transpareo/md2pdf/form_fields.rb'
+
+# A test asserting one rendered document may check many facets of it.
+Metrics/AbcSize:
+  Max: 25
   Exclude:
     - 'test/**/*'
 

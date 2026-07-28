@@ -398,24 +398,28 @@ md2pdf --editable document.md
 ```
 
 With `--editable` (config key `editable`), the PDF stops being
-read-only: checkboxes and text inputs become real form fields that
-readers fill in any form-capable viewer and save. That fits any
-document a reader acts on rather than merely reads: worksheets,
-inspection reports, questionnaires, sign-off sheets. The rest of
-the document stays ordinary printed text.
+read-only: form controls become real form fields that readers
+fill in any form-capable viewer and save. That fits any document
+a reader acts on rather than merely reads: worksheets, inspection
+reports, questionnaires, sign-off sheets. The rest of the
+document stays ordinary printed text.
 
-Two kinds of field are recognised:
+Task lists are the markdown way to write a checkbox, and `- [x]`
+items start out checked. Everything else is the raw HTML form
+vocabulary, which markdown passes through wherever HTML is
+allowed, a table of approvals included:
 
-- **Checkboxes.** Every checkbox in the document, wherever it
-  stands. Task lists are the markdown way to write one, and
-  `- [x]` items start out checked; a raw
-  `<input type="checkbox">` works anywhere markdown allows HTML,
-  a table of approvals included.
-- **Text inputs.** Markdown has no syntax for a blank line to
-  write on, so these are the raw HTML element:
-  `<input type="text" size="40">` prints as an underlined blank
-  that wide (`size` counts characters) and becomes a field the
-  reader types into.
+- **Checkboxes**: `<input type="checkbox">`, `checked` honoured.
+- **Text inputs**: `<input type="text" size="40">` prints as an
+  underlined blank that wide (`size` counts characters);
+  `value="..."` prefills the field.
+- **Textareas**: `<textarea rows="4" cols="60">` becomes a box
+  the reader types multiple lines into.
+- **Radio buttons**: `<input type="radio" name="grade">` groups
+  by `name`, exactly as in HTML, and picking one clears the
+  others; `value` names the choice, `checked` preselects it.
+- **Dropdowns**: `<select>` with `<option>`s becomes a combo
+  box offering those options, `selected` choosing the default.
 
 No PDF library does the printing here and no browser can print a
 form field, so the fields are added to Chromium's output

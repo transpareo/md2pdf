@@ -122,6 +122,37 @@ class IntegrationTest < Minitest::Test
     end
   end
 
+  def test_editable_creates_radio_textarea_and_select_fields
+    in_document(full_form_source) do |md, dir|
+      capture_io { Transpareo::Md2pdf.convert(md, editable: true) }
+      objects = PDF::Reader.new(File.join(dir, 'doc.pdf')).objects
+      catalog = objects.deref(objects.trailer[:Root])
+      form = objects.deref(catalog[:AcroForm])
+      fields = Array(objects.deref(form[:Fields]))
+        .map { |ref| objects.deref(ref) }
+
+      parent = fields.find { |f| f[:Kids] }
+
+      assert_equal 'sev', parent[:T]
+      assert_equal :low, parent[:V]
+      assert_equal 2, Array(objects.deref(parent[:Kids])).size
+
+      area = fields.find { |f| f[:Ff] == 4096 }
+
+      assert_equal 'textarea-1', area[:T]
+
+      combo = fields.find { |f| f[:FT] == :Ch }
+
+      assert_equal %w[North South], objects.deref(combo[:Opt])
+      assert_equal 'North', combo[:V]
+
+      text = fields.find { |f| f[:T] == 'text-1' }
+
+      assert_equal 'Jane Doe', text[:V]
+      assert text[:AP], 'prefilled text lacks a drawn appearance'
+    end
+  end
+
   def test_editable_defaults_to_a_static_document
     in_document(tasks_source) do |md, dir|
       capture_io { Transpareo::Md2pdf.convert(md) }
@@ -189,6 +220,23 @@ class IntegrationTest < Minitest::Test
 
   def tasks_source
     "# Tasks\n\n- [ ] open\n- [x] done\n"
+  end
+
+  def full_form_source
+    <<~MD
+      # Form
+
+      Severity:
+      <input type="radio" name="sev" value="low" checked> low
+      <input type="radio" name="sev" value="high"> high
+
+      <textarea rows="3" cols="40"></textarea>
+
+      Region: <select><option selected>North</option>
+      <option>South</option></select>
+
+      Name: <input type="text" size="20" value="Jane Doe">
+    MD
   end
 
   def long_source

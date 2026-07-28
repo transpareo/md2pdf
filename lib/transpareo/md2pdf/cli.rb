@@ -58,8 +58,9 @@ module Transpareo
                                  Default 1500.
           --footnotes-label=TEXT Footnotes section heading text.
                                  Default per locale. Pass "" for none.
-          --editable             Checkboxes and text inputs become
-                                 fillable PDF form fields.
+          --editable             Checkboxes, radio buttons, text
+                                 inputs, textareas and selects
+                                 become fillable PDF form fields.
           --locale=CODE          Locale (en, de, fr, es, it, pt, nl).
                                  Auto-detected from filenames like
                                  foo.de.md; falls back to en.

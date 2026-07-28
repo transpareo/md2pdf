@@ -21,6 +21,10 @@ module Transpareo
           tasklist: true,
           footnotes: true,
           description_lists: true,
+          # GFM's tagfilter escapes textarea, style and friends
+          # even with unsafe rendering on. The document is the
+          # author's own, and editable mode needs raw textareas.
+          tagfilter: false,
           # Left off deliberately: commonmarker's version injects an
           # empty <a class="anchor"> into every heading, which then
           # leaks into demoted paragraphs and TOC text. The Slugs
