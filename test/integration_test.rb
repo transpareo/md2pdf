@@ -222,6 +222,45 @@ class IntegrationTest < Minitest::Test
     end
   end
 
+  def test_same_named_inputs_become_one_synced_field
+    src = "Top: <input name=\"who\" value=\"Jane\">\n\n" \
+          "Bottom: <input name=\"who\">\n"
+    in_document("# F\n\n#{src}") do |md, dir|
+      capture_io { Transpareo::Md2pdf.convert(md, editable: true) }
+      objects = PDF::Reader.new(File.join(dir, 'doc.pdf')).objects
+      catalog = objects.deref(objects.trailer[:Root])
+      form = objects.deref(catalog[:AcroForm])
+      fields = Array(objects.deref(form[:Fields]))
+        .map { |ref| objects.deref(ref) }
+      who = fields.find { |f| f[:T] == 'who' }
+
+      assert_equal(1, fields.count { |f| f[:T] == 'who' })
+      assert_equal 'Jane', who[:V]
+
+      kids = Array(objects.deref(who[:Kids]))
+
+      assert_equal 2, kids.size
+      kids.each do |kid_ref|
+        assert objects.deref(kid_ref)[:AP],
+               'every clone draws the shared value'
+      end
+    end
+  end
+
+  def test_textarea_default_text_prefills_the_field
+    src = '<textarea rows="4" cols="40">alpha beta gamma ' \
+          "delta epsilon zeta\nnew paragraph</textarea>"
+    in_document("# F\n\n#{src}\n") do |md, dir|
+      capture_io { Transpareo::Md2pdf.convert(md, editable: true) }
+      fields = fields_of(File.join(dir, 'doc.pdf'))
+      area = fields.find { |f| f[:Ff] == 4096 }
+
+      assert_equal "alpha beta gamma delta epsilon zeta\n" \
+                   'new paragraph', area[:V]
+      assert area[:AP], 'textarea prefill lacks a drawn appearance'
+    end
+  end
+
   def test_editable_defaults_to_a_static_document
     in_document(tasks_source) do |md, dir|
       capture_io { Transpareo::Md2pdf.convert(md) }

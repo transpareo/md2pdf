@@ -97,15 +97,35 @@ class FiltersTest < Minitest::Test
     refute_includes html, '<textarea'
   end
 
-  def test_editable_warns_on_textarea_default_text
-    html = nil
-    _, err = capture_io do
-      html = render_html("<textarea>preset</textarea>\n",
-                         editable: true,)
-    end
+  def test_editable_takes_textarea_default_text
+    src = "<textarea>line one\nline two</textarea>\n"
+    doc = Document.from_markdown(src)
+    doc.apply([Filters::EditableFields])
 
-    assert_match(/textarea default text/, err)
-    refute_includes html, 'preset'
+    assert_equal "line one\nline two",
+                 doc.fields['md2pdf.f.1'][:value]
+  end
+
+  def test_editable_names_fields_from_name_attributes
+    src = '<input name="inspector"> <select name="region">' \
+          "<option>N</option></select>\n"
+    doc = Document.from_markdown(src)
+    doc.apply([Filters::EditableFields])
+
+    names = doc.fields.values.map { |spec| spec[:name] }
+
+    assert_equal %w[inspector region], names
+  end
+
+  def test_editable_renames_cross_kind_name_collisions
+    src = "<input type=\"checkbox\" name=\"x\"> <input name=\"x\">\n"
+    doc = Document.from_markdown(src)
+    _, err = capture_io { doc.apply([Filters::EditableFields]) }
+
+    names = doc.fields.values.map { |spec| spec[:name] }
+
+    assert_match(/renaming to x-2/, err)
+    assert_equal %w[x x-2], names
   end
 
   def test_editable_records_select_options_and_selection

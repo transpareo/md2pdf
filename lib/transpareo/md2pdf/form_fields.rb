@@ -170,6 +170,12 @@ module Transpareo
         # Field quadding values, the PDF names for text alignment.
         QUADDING = { center: 1, right: 2 }.freeze
 
+        # The keys that make widgets of one field interchangeable.
+        # Kids inherit them from the first member, so a value given
+        # on any one control shows on every clone.
+        IDENTITY = %i[name value checked options align
+                      font_size].freeze
+
         # Standard Helvetica advance widths in thousandths of the
         # em, ASCII 32 to 126; everything else uses the average
         # lowercase width. Only the fallback needs them: an
@@ -329,11 +335,17 @@ module Transpareo
             if members.first[:kind] == :radio
               add_group(members, radio_parent(members))
             elsif members.size > 1
-              add_group(members, cluster_parent(members))
+              unified = unify(members)
+              add_group(unified, cluster_parent(unified))
             else
               add_single(members.first)
             end
           end
+        end
+
+        def unify(members)
+          shared = members.first.slice(*IDENTITY)
+          members.map { |member| member.except(*IDENTITY).merge(shared) }
         end
 
         def clusters
@@ -412,7 +424,7 @@ module Transpareo
           case field[:kind]
           when :checkbox then checkbox_mark(field)
           when :radio then radio_mark(field)
-          when :textarea then {}
+          when :textarea then textarea_mark(field)
           else value_mark(field)
           end
         end
@@ -454,7 +466,70 @@ module Transpareo
         end
 
         def textarea_field(field)
-          text_field(field).merge(V: '', Ff: 4096)
+          text_field(field).merge(Ff: 4096)
+        end
+
+        # Multiline prefills wrap on the embedded font's metrics
+        # and clip at the box, the way the widget itself would.
+        def textarea_mark(field)
+          value = pdf_text(field[:value])
+          return {} if value.empty?
+
+          x1, y1, x2, y2 = rect_for(field)
+          size = size_for(field)
+          lines = wrap_lines(value, x2 - x1 - 2, size)
+          content = multiline_text(lines, y2 - y1, size)
+          id = alloc
+          add(id, stream(x2 - x1, y2 - y1, content, font: true))
+          { AP: { N: FormFields.ref(id) } }
+        end
+
+        def wrap_lines(value, width, size)
+          value.split("\n", -1).flat_map do |paragraph|
+            wrap_paragraph(paragraph, width, size)
+          end
+        end
+
+        def wrap_paragraph(paragraph, width, size)
+          lines = ['']
+          paragraph.split.each do |word|
+            joined = lines.last.empty? ? word : "#{lines.last} #{word}"
+            if text_width(joined, size) <= width
+              lines[-1] = joined
+            elsif text_width(word, size) <= width
+              lines << word
+            else
+              lines.concat(hard_break(word, width, size))
+            end
+          end
+          lines
+        end
+
+        # A word wider than the box breaks mid-word rather than
+        # vanish past the edge.
+        def hard_break(word, width, size)
+          pieces = ['']
+          word.each_char do |char|
+            if text_width(pieces.last + char, size) <= width
+              pieces[-1] += char
+            else
+              pieces << char
+            end
+          end
+          pieces
+        end
+
+        # Lines past the box are clipped; a reader scrolls them in
+        # the live field, exactly as with typed overflow.
+        def multiline_text(lines, height, size)
+          leading = size * 1.2
+          room = (((height - size - 1) / leading).floor + 1)
+            .clamp(0, lines.size)
+          body = lines.first(room)
+            .map { |line| "(#{FormFields.escape(line)}) Tj T*" }
+            .join(' ')
+          "BT /F1 #{fmt(size)} Tf #{fmt(leading)} TL " \
+            "1 #{fmt(height - size)} Td #{body} ET"
         end
 
         # A drawn appearance for the widget's own rectangle, when

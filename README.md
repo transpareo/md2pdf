@@ -414,12 +414,20 @@ allowed, a table of approvals included:
   underlined blank that wide (`size` counts characters);
   `value="..."` prefills the field.
 - **Textareas**: `<textarea rows="4" cols="60">` becomes a box
-  the reader types multiple lines into.
+  the reader types multiple lines into; text inside the element
+  prefills it, wrapped to the box on the font's own metrics.
 - **Radio buttons**: `<input type="radio" name="grade">` groups
   by `name`, exactly as in HTML, and picking one clears the
   others; `value` names the choice, `checked` preselects it.
 - **Dropdowns**: `<select>` with `<option>`s becomes a combo
   box offering those options, `selected` choosing the default.
+
+A `name` attribute names the PDF field, so a filled form reads
+back with the author's keys (`inspector`, `region`) rather than
+generated ones. Controls of one kind sharing a name become one
+field showing the same value everywhere, handy for a signature
+line repeated on every page; radios already group by `name` the
+way HTML does.
 
 Field text, typed and prefilled alike, is set in the document's
 own body font: md2pdf resolves `font-family` through fontconfig,

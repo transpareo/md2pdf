@@ -25,22 +25,24 @@ module Transpareo
         module_function
 
         def call(doc)
-          replace_checkboxes(doc)
-          replace_radios(doc)
-          replace_text_inputs(doc)
-          replace_textareas(doc)
-          replace_selects(doc)
+          names = {}
+          replace_checkboxes(doc, names)
+          replace_radios(doc, names)
+          replace_text_inputs(doc, names)
+          replace_textareas(doc, names)
+          replace_selects(doc, names)
         end
 
         # Any checkbox in the document qualifies, whether markdown's
         # task-list sugar or raw HTML placed wherever the author
         # wants a box, a table of approvals included.
-        def replace_checkboxes(doc)
+        def replace_checkboxes(doc, names)
           doc.fragment.css('input[type="checkbox"]')
             .each_with_index do |input, index|
+            fallback = "checkbox-#{index + 1}"
             spec = {
               kind: :checkbox,
-              name: "checkbox-#{index + 1}",
+              name: named(names, :checkbox, input, fallback),
               checked: !input['checked'].nil?,
             }
             id = register(doc, spec)
@@ -52,12 +54,11 @@ module Transpareo
 
         # Radios group by their name attribute, HTML's own grouping
         # rule; an unnamed radio stands alone.
-        def replace_radios(doc)
+        def replace_radios(doc, names)
           used = Hash.new { |hash, key| hash[key] = {} }
           doc.fragment.css('input[type="radio"]')
             .each_with_index do |input, index|
-            group = input['name'].to_s
-            group = "radio-#{index + 1}" if group.empty?
+            group = named(names, :radio, input, "radio-#{index + 1}")
             spec = {
               kind: :radio,
               group: group,
@@ -73,10 +74,14 @@ module Transpareo
 
         # An input with no type is a text input, per HTML. A value
         # attribute prefills the field.
-        def replace_text_inputs(doc)
+        def replace_text_inputs(doc, names)
           doc.fragment.css('input[type="text"], input:not([type])')
             .each_with_index do |input, index|
-            spec = { kind: :text, name: "text-#{index + 1}" }
+            fallback = "text-#{index + 1}"
+            spec = {
+              kind: :text,
+              name: named(names, :text, input, fallback),
+            }
             value = input['value'].to_s
             spec[:value] = value unless value.empty?
             add_text_style(spec, input)
@@ -87,13 +92,18 @@ module Transpareo
           end
         end
 
-        def replace_textareas(doc)
+        # Text inside the element prefills the field, newlines kept;
+        # the customary newline right after the opening tag is not
+        # content.
+        def replace_textareas(doc, names)
           doc.fragment.css('textarea').each_with_index do |area, index|
-            unless area.text.strip.empty?
-              warn 'md2pdf: textarea default text is not supported, ' \
-                   'the field starts empty'
-            end
-            spec = { kind: :textarea, name: "textarea-#{index + 1}" }
+            fallback = "textarea-#{index + 1}"
+            spec = {
+              kind: :textarea,
+              name: named(names, :textarea, area, fallback),
+            }
+            value = area.text.sub(/\A\r?\n/, '')
+            spec[:value] = value unless value.strip.empty?
             add_text_style(spec, area)
             id = register(doc, spec)
             style = merge_styles(textarea_style(area), area['style'])
@@ -104,10 +114,10 @@ module Transpareo
 
         # Multiple-selection lists have no combo-box equivalent yet
         # and are left as they are, which prints them statically.
-        def replace_selects(doc)
+        def replace_selects(doc, names)
           doc.fragment.css('select:not([multiple])')
             .each_with_index do |select, index|
-            spec = select_spec(select, index)
+            spec = select_spec(select, names, index)
             add_text_style(spec, select)
             id = register(doc, spec)
             style = merge_styles(select_width(spec[:options]),
@@ -117,16 +127,38 @@ module Transpareo
           end
         end
 
-        def select_spec(select, index)
+        def select_spec(select, names, index)
           options = select.css('option').map { |opt| opt.text.strip }
           options = [''] if options.empty?
           chosen = select.at_css('option[selected]')
           {
             kind: :select,
-            name: "select-#{index + 1}",
+            name: named(names, :select, select, "select-#{index + 1}"),
             options: options,
             value: chosen ? chosen.text.strip : options.first,
           }
+        end
+
+        # The name attribute names the PDF field, so a filled form
+        # reads back with the author's keys. Controls of one kind
+        # sharing a name become one field showing the same value
+        # everywhere; a name already taken by another kind is
+        # suffixed instead, because two field kinds cannot fuse.
+        def named(names, kind, node, fallback)
+          name = node['name'].to_s.strip
+          name = fallback if name.empty?
+          name = untangle(names, name) if
+            names.key?(name) && names[name] != kind
+          names[name] = kind
+          name
+        end
+
+        def untangle(names, base)
+          count = 2
+          count += 1 while names.key?("#{base}-#{count}")
+          warn "md2pdf: field name #{base} is used by another " \
+               "control kind, renaming to #{base}-#{count}"
+          "#{base}-#{count}"
         end
 
         # Wide enough for the longest option plus the arrow.

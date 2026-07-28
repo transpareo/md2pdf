@@ -22,7 +22,10 @@ and a fresh `## [Unreleased]` opens above it.
   rectangle; md2pdf rewrites those annotations into AcroForm
   fields by appending an incremental update, so nothing is
   re-laid-out. Task-list items give checkboxes, `- [x]` starting
-  checked. Prefilled values are written as drawn appearance
+  checked. A `name` attribute names the PDF field, and controls
+  of one kind sharing a name become one field synced across all
+  its appearances; textarea content prefills the field, wrapped
+  to the box. Prefilled values are written as drawn appearance
   streams, so every viewer shows them without regenerating
   anything. Field text is set in the document's body font,
   resolved through fontconfig and embedded whole, falling back
