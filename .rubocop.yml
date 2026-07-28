@@ -73,6 +73,7 @@ Metrics/ClassLength:
   Exclude:
     - 'test/**/*'
     - 'lib/transpareo/md2pdf/form_fields.rb'
+    - 'lib/transpareo/md2pdf/field_font.rb'
 
 # A test asserting one rendered document may check many facets of it.
 Metrics/AbcSize:

@@ -24,8 +24,13 @@ and a fresh `## [Unreleased]` opens above it.
   re-laid-out. Task-list items give checkboxes, `- [x]` starting
   checked. Prefilled values are written as drawn appearance
   streams, so every viewer shows them without regenerating
-  anything. If the fields cannot be added, the document is
-  re-rendered as a static document instead.
+  anything. Field text is set in the document's body font,
+  resolved through fontconfig and embedded whole, falling back
+  to Helvetica when nothing resolves. A `style` attribute on a
+  control styles its printed box, with `text-align` and
+  `font-size` carried into the field itself. If the fields
+  cannot be added, the document is re-rendered as a static
+  document instead.
 - Images. Paths resolve relative to the markdown file rather than
   the working directory, and local files are embedded as data URIs
   so the finished PDF carries its own artwork. PNG, JPEG, GIF, SVG,

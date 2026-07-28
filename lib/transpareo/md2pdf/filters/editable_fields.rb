@@ -44,7 +44,9 @@ module Transpareo
               checked: !input['checked'].nil?,
             }
             id = register(doc, spec)
-            input.replace(doc.build(anchor(id, 'form-checkbox')))
+            style = merge_styles(input['style'])
+            html = anchor(id, 'form-checkbox', style: style)
+            input.replace(doc.build(html))
           end
         end
 
@@ -63,7 +65,9 @@ module Transpareo
               checked: !input['checked'].nil?,
             }
             id = register(doc, spec)
-            input.replace(doc.build(anchor(id, 'form-radio')))
+            style = merge_styles(input['style'])
+            html = anchor(id, 'form-radio', style: style)
+            input.replace(doc.build(html))
           end
         end
 
@@ -75,8 +79,10 @@ module Transpareo
             spec = { kind: :text, name: "text-#{index + 1}" }
             value = input['value'].to_s
             spec[:value] = value unless value.empty?
+            add_text_style(spec, input)
             id = register(doc, spec)
-            html = anchor(id, 'form-text', style: width_style(input))
+            style = merge_styles(width_style(input), input['style'])
+            html = anchor(id, 'form-text', style: style)
             input.replace(doc.build(html))
           end
         end
@@ -88,8 +94,9 @@ module Transpareo
                    'the field starts empty'
             end
             spec = { kind: :textarea, name: "textarea-#{index + 1}" }
+            add_text_style(spec, area)
             id = register(doc, spec)
-            style = textarea_style(area)
+            style = merge_styles(textarea_style(area), area['style'])
             html = anchor(id, 'form-textarea', style: style)
             area.replace(doc.build(html))
           end
@@ -100,21 +107,31 @@ module Transpareo
         def replace_selects(doc)
           doc.fragment.css('select:not([multiple])')
             .each_with_index do |select, index|
-            options = select.css('option').map { |opt| opt.text.strip }
-            options = [''] if options.empty?
-            chosen = select.at_css('option[selected]')
-            spec = {
-              kind: :select,
-              name: "select-#{index + 1}",
-              options: options,
-              value: chosen ? chosen.text.strip : options.first,
-            }
+            spec = select_spec(select, index)
+            add_text_style(spec, select)
             id = register(doc, spec)
-            width = options.map(&:length).max + 4
-            style = "width: #{width}ch"
+            style = merge_styles(select_width(spec[:options]),
+                                 select['style'],)
             html = anchor(id, 'form-select', style: style)
             select.replace(doc.build(html))
           end
+        end
+
+        def select_spec(select, index)
+          options = select.css('option').map { |opt| opt.text.strip }
+          options = [''] if options.empty?
+          chosen = select.at_css('option[selected]')
+          {
+            kind: :select,
+            name: "select-#{index + 1}",
+            options: options,
+            value: chosen ? chosen.text.strip : options.first,
+          }
+        end
+
+        # Wide enough for the longest option plus the arrow.
+        def select_width(options)
+          "width: #{options.map(&:length).max + 4}ch"
         end
 
         def register(doc, spec)
@@ -131,6 +148,38 @@ module Transpareo
           count = used[base] || 0
           used[base] = count + 1
           count.positive? ? "#{base}-#{count}" : base
+        end
+
+        # A style attribute styles the printed box, but these two
+        # properties also reach into the field itself, where CSS
+        # cannot: the alignment becomes the field's quadding and
+        # the size its text size, so what a reader types matches
+        # what the page promised.
+        def add_text_style(spec, node)
+          style = node['style'].to_s
+          if (align = style[/text-align\s*:\s*(center|right)/, 1])
+            spec[:align] = align.to_sym
+          end
+          size = font_size_from(style)
+          spec[:font_size] = size if size
+        end
+
+        # Field text sizes are points; px print at three quarters
+        # of a point. Relative units have nothing to resolve
+        # against inside a field and are left to the stylesheet.
+        def font_size_from(style)
+          match = style.match(/font-size\s*:\s*([\d.]+)(pt|px)/)
+          return nil unless match
+
+          value = match[1].to_f
+          match[2] == 'px' ? value * 0.75 : value
+        end
+
+        # Author styles come last, so they win over the generated
+        # geometry.
+        def merge_styles(*styles)
+          merged = styles.compact.reject(&:empty?).join('; ')
+          merged.empty? ? nil : merged
         end
 
         # The size attribute counts characters, which is exactly

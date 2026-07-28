@@ -75,6 +75,7 @@ module Transpareo
           basename: basename,
           base_dir: base_dir_for(md_path),
           font_size: style[:font_size],
+          font_family: field_font_family(style),
           css: Style.build(**with_footer_title(style, text)),
         }
 
@@ -91,6 +92,12 @@ module Transpareo
 
         warn "md2pdf: not found: #{md_path}"
         nil
+      end
+
+      # Form fields embed the body font, so they follow the same
+      # setting the stylesheet renders with.
+      def field_font_family(style)
+        style[:font_family] || Style::DEFAULTS[:font_family]
       end
 
       def prepare_text(source, unwrap)
@@ -218,7 +225,11 @@ module Transpareo
       # fallback is a fresh static render, where Chromium draws the
       # ticks and the native inputs.
       def attach_fields(text, pdf_path, options, fields)
-        FormFields.call(pdf_path, fields, font_size: options[:font_size])
+        FormFields.call(
+          pdf_path, fields,
+          font_size: options[:font_size],
+          font_family: options[:font_family],
+        )
       rescue StandardError => e
         warn 'md2pdf: could not add form fields, rendering a ' \
              "static document: #{e.message}"

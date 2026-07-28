@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'pdf-reader'
+require 'zlib'
 
 module Transpareo
   module Md2pdf
@@ -39,7 +40,7 @@ module Transpareo
       # Rewrites the annotations named in `manifest`, the filter's
       # {destination name => field spec} record. Returns the number
       # of fields created, zero when nothing matched.
-      def call(pdf_path, manifest, font_size: nil)
+      def call(pdf_path, manifest, font_size: nil, font_family: nil)
         return 0 if manifest.nil? || manifest.empty?
 
         bytes = File.binread(pdf_path)
@@ -49,8 +50,9 @@ module Transpareo
         fields = editable_annotations(objects, manifest)
         return 0 if fields.empty?
 
-        revision = Update.new(bytes, objects, fields, font_size).render
-        File.binwrite(pdf_path, bytes + revision)
+        update = Update.new(bytes, objects, fields,
+                            font_size, font_family,)
+        File.binwrite(pdf_path, bytes + update.render)
         fields.size
       end
 
@@ -165,11 +167,30 @@ module Transpareo
       # instance owns the growing byte string and the object-number
       # counter, which a pile of threaded parameters kept obscuring.
       class Update
-        def initialize(bytes, objects, fields, font_size)
+        # Field quadding values, the PDF names for text alignment.
+        QUADDING = { center: 1, right: 2 }.freeze
+
+        # Standard Helvetica advance widths in thousandths of the
+        # em, ASCII 32 to 126; everything else uses the average
+        # lowercase width. Only the fallback needs them: an
+        # embedded field font carries its own metrics.
+        HELVETICA_WIDTHS = [
+          278, 278, 355, 556, 556, 889, 667, 191, 333, 333, 389, 584,
+          278, 333, 278, 278, 556, 556, 556, 556, 556, 556, 556, 556,
+          556, 556, 278, 278, 584, 584, 584, 556, 1015, 667, 667, 722,
+          722, 667, 611, 778, 722, 278, 500, 667, 556, 833, 722, 778,
+          667, 778, 722, 667, 611, 722, 667, 944, 667, 667, 611, 278,
+          278, 278, 469, 556, 333, 556, 556, 500, 556, 556, 278, 556,
+          556, 222, 222, 500, 222, 833, 556, 556, 556, 556, 333, 500,
+          278, 556, 500, 722, 500, 500, 500, 334, 260, 334, 584,
+        ].freeze
+
+        def initialize(bytes, objects, fields, font_size, font_family)
           @bytes = bytes
           @objects = objects
           @fields = fields
           @size = FormFields.body_size(font_size) - 1
+          @font_family = font_family
         end
 
         def render
@@ -214,7 +235,64 @@ module Transpareo
 
         def add_font
           @font_id = alloc
-          add(@font_id, FormFields.ser(FormFields.helvetica))
+          @field_font = FieldFont.load(@font_family)
+          if @field_font
+            add_embedded_font
+          else
+            add(@font_id, FormFields.ser(FormFields.helvetica))
+          end
+        end
+
+        def add_embedded_font
+          file_id = alloc
+          desc_id = alloc
+          add_font_file(file_id)
+          add(desc_id, FormFields.ser(descriptor(file_id)))
+          add(@font_id, FormFields.ser(font_dict(desc_id)))
+        end
+
+        def add_font_file(file_id)
+          data = Zlib::Deflate.deflate(@field_font.bytes)
+          dict = { Filter: :FlateDecode, Length: data.bytesize }
+          if @field_font.open_type?
+            dict[:Subtype] = :OpenType
+          else
+            dict[:Length1] = @field_font.bytes.bytesize
+          end
+          body = "#{FormFields.ser(dict)}\nstream\n#{data}\nendstream"
+          add(file_id, body)
+        end
+
+        def descriptor(file_id)
+          font = @field_font
+          desc = {
+            Type: :FontDescriptor,
+            FontName: font.base_font.to_sym,
+            Flags: 32,
+            FontBBox: font.bbox,
+            ItalicAngle: font.italic_angle,
+            Ascent: font.ascent,
+            Descent: font.descent,
+            CapHeight: font.cap_height,
+            StemV: 80,
+            MissingWidth: 0,
+          }
+          key = font.open_type? ? :FontFile3 : :FontFile2
+          desc[key] = FormFields.ref(file_id)
+          desc
+        end
+
+        def font_dict(desc_id)
+          {
+            Type: :Font,
+            Subtype: :TrueType,
+            BaseFont: @field_font.base_font.to_sym,
+            FirstChar: 32,
+            LastChar: 255,
+            Widths: @field_font.widths,
+            Encoding: :WinAnsiEncoding,
+            FontDescriptor: FormFields.ref(desc_id),
+          }
         end
 
         # One on/off appearance pair serves every mark of a kind:
@@ -286,7 +364,9 @@ module Transpareo
             P: field[:page],
             BS: { W: 0 },
           }
-          base.merge(specific)
+          merged = base.merge(specific)
+          merged[:Q] = QUADDING[field[:align]] if field[:align]
+          merged
         end
 
         def checkbox_widget(field)
@@ -318,7 +398,7 @@ module Transpareo
             FT: :Tx,
             T: field[:name],
             V: value,
-            DA: da,
+            DA: da_for(field),
           }
           ap = value_appearance(field, value)
           spec[:AP] = { N: ap } if ap
@@ -330,7 +410,7 @@ module Transpareo
             FT: :Tx,
             T: field[:name],
             V: '',
-            DA: da,
+            DA: da_for(field),
             Ff: 4096,
           }
         end
@@ -342,7 +422,7 @@ module Transpareo
             T: field[:name],
             V: value,
             Opt: field[:options].map { |opt| pdf_text(opt) },
-            DA: da,
+            DA: da_for(field),
             Ff: 131_072,
           }
           ap = value_appearance(field, value)
@@ -371,8 +451,10 @@ module Transpareo
           return nil if value.empty?
 
           x1, y1, x2, y2 = rect_for(field)
-          content = "BT /Helv #{fmt(@size)} Tf 0.5 " \
-                    "#{fmt(baseline(field, y2 - y1))} Td " \
+          size = size_for(field)
+          x = text_x(field, value, x2 - x1, size)
+          content = "BT /F1 #{fmt(size)} Tf #{fmt(x)} " \
+                    "#{fmt(baseline(field, y2 - y1, size))} Td " \
                     "(#{FormFields.escape(value)}) Tj ET"
           id = alloc
           add(id, stream(x2 - x1, y2 - y1, content, font: true))
@@ -381,14 +463,51 @@ module Transpareo
 
         # A boxed control centres its text; an underline field sits
         # just above the rule, leaving descender room.
-        def baseline(field, height)
-          return (height - (@size * 0.72)) / 2 if field[:kind] == :select
+        def baseline(field, height, size)
+          return (height - (size * 0.72)) / 2 if
+            field[:kind] == :select
 
-          @size * 0.2
+          size * 0.2
+        end
+
+        # Where a drawn value starts, honouring the field's own
+        # alignment the way viewers will honour its quadding.
+        def text_x(field, value, width, size)
+          case field[:align]
+          when :center
+            [(width - text_width(value, size)) / 2, 0.5].max
+          when :right
+            [width - text_width(value, size) - 2, 0.5].max
+          else
+            0.5
+          end
+        end
+
+        def text_width(value, size)
+          thousandths = value.each_byte.sum { |byte| char_width(byte) }
+          thousandths * size / 1000.0
+        end
+
+        def char_width(byte)
+          return @field_font.width_of(byte) if @field_font
+
+          index = byte - 32
+          (0..94).cover?(index) ? HELVETICA_WIDTHS[index] : 556
         end
 
         def da
-          @da ||= "/Helv #{fmt(@size)} Tf 0 g"
+          @da ||= "/F1 #{fmt(@size)} Tf 0 g"
+        end
+
+        # An author-given size is used exactly; only the derived
+        # default steps one point under the body.
+        def da_for(field)
+          size = field[:font_size]
+          size ? "/F1 #{fmt(size)} Tf 0 g" : da
+        end
+
+        def size_for(field)
+          field[:font_size] || @size
         end
 
         # Helvetica is written with WinAnsi encoding, so values are
@@ -408,7 +527,7 @@ module Transpareo
 
         def stream(width, height, content, font: false)
           resources = {}
-          resources = { Font: { Helv: FormFields.ref(@font_id) } } if
+          resources = { Font: { F1: FormFields.ref(@font_id) } } if
             font
           dict = {
             Type: :XObject,
@@ -474,7 +593,7 @@ module Transpareo
           form = { Fields: tops }
           if @font_id
             form[:DA] = da
-            form[:DR] = { Font: { Helv: FormFields.ref(@font_id) } }
+            form[:DR] = { Font: { F1: FormFields.ref(@font_id) } }
           end
           form
         end

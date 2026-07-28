@@ -115,7 +115,7 @@ class IntegrationTest < Minitest::Test
 
       assert_equal ['text-1'], names
       assert_equal :Tx, fields.first[:FT]
-      assert_includes fields.first[:DA], 'Helv'
+      assert_includes fields.first[:DA], '/F1'
       width = fields.first[:Rect][2] - fields.first[:Rect][0]
 
       assert_operator width, :>, 100
@@ -150,6 +150,42 @@ class IntegrationTest < Minitest::Test
 
       assert_equal 'Jane Doe', text[:V]
       assert text[:AP], 'prefilled text lacks a drawn appearance'
+    end
+  end
+
+  def test_editable_styles_reach_the_field_dictionary
+    src = '<input value="Mid" ' \
+          'style="text-align: center; font-size: 14pt">'
+    in_document("# F\n\n#{src}\n") do |md, dir|
+      capture_io { Transpareo::Md2pdf.convert(md, editable: true) }
+      field = fields_of(File.join(dir, 'doc.pdf')).first
+
+      assert_equal 1, field[:Q]
+      assert_includes field[:DA], '14'
+      assert field[:AP], 'aligned prefill lacks a drawn appearance'
+    end
+  end
+
+  def test_editable_embeds_the_document_font_for_fields
+    in_document("# F\n\n<input value=\"Jane\">\n") do |md, dir|
+      capture_io { Transpareo::Md2pdf.convert(md, editable: true) }
+      objects = PDF::Reader.new(File.join(dir, 'doc.pdf')).objects
+      catalog = objects.deref(objects.trailer[:Root])
+      form = objects.deref(catalog[:AcroForm])
+      font = objects.deref(objects.deref(form[:DR])[:Font][:F1])
+      skip 'no embeddable font on this system' if
+        font[:Subtype] == :Type1
+
+      assert_equal :TrueType, font[:Subtype]
+
+      descriptor = objects.deref(font[:FontDescriptor])
+
+      assert descriptor[:FontFile2] || descriptor[:FontFile3],
+             'embedded font lacks its font file'
+
+      widths = objects.deref(font[:Widths])
+
+      assert_operator widths['A'.ord - 32], :>, 0
     end
   end
 

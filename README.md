@@ -421,6 +421,24 @@ allowed, a table of approvals included:
 - **Dropdowns**: `<select>` with `<option>`s becomes a combo
   box offering those options, `selected` choosing the default.
 
+Field text, typed and prefilled alike, is set in the document's
+own body font: md2pdf resolves `font-family` through fontconfig,
+the same lookup the rendering went through, and embeds the font
+whole into the PDF, since Chromium's embedded copy covers only
+the glyphs the page already used. When no listed family resolves,
+fields fall back to the built-in Helvetica.
+
+Individual fields take a `style` attribute. It styles the printed
+box like any CSS, and two properties reach into the field itself,
+where page CSS cannot: `text-align: center` (or `right`) aligns
+what the reader types, and `font-size` sets the field's text
+size.
+
+```markdown
+Signature: <input style="height: 2.2em; font-size: 14pt">
+Amount: <input size="12" style="text-align: right">
+```
+
 No PDF library does the printing here and no browser can print a
 form field, so the fields are added to Chromium's output
 afterwards. Each input is rendered as an internal link, which

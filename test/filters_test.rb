@@ -150,6 +150,31 @@ class FiltersTest < Minitest::Test
     assert_equal 'Jane', doc.fields['md2pdf.f.1'][:value]
   end
 
+  def test_editable_forwards_style_after_generated_geometry
+    src = "<input size=\"10\" style=\"height: 2em\">\n"
+    html = render_html(src, editable: true)
+    anchor = Nokogiri::HTML5.fragment(html).at_css('a.form-text')
+
+    assert_equal 'width: 10ch; height: 2em', anchor['style']
+  end
+
+  def test_editable_lifts_alignment_and_size_into_the_manifest
+    src = '<input style="text-align: center; font-size: 14pt">'
+    doc = Document.from_markdown("#{src}\n")
+    doc.apply([Filters::EditableFields])
+    spec = doc.fields['md2pdf.f.1']
+
+    assert_equal :center, spec[:align]
+    assert_in_delta 14.0, spec[:font_size]
+  end
+
+  def test_editable_converts_px_font_sizes_to_points
+    doc = Document.from_markdown("<input style=\"font-size: 16px\">\n")
+    doc.apply([Filters::EditableFields])
+
+    assert_in_delta 12.0, doc.fields['md2pdf.f.1'][:font_size]
+  end
+
   def test_editable_fields_record_a_manifest
     src = "- [ ] open\n- [x] done\n\nName: <input size=\"5\">\n"
     doc = Document.from_markdown(src)
