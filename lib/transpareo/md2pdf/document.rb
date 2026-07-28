@@ -12,9 +12,15 @@ module Transpareo
     class Document
       attr_reader :fragment, :options
 
+      # Filters that plant form fields record them here, keyed by
+      # the destination name each planted anchor points at; the
+      # Runner hands this manifest to FormFields after printing.
+      attr_accessor :fields
+
       def initialize(html, **options)
         @fragment = Nokogiri::HTML5.fragment(html)
         @options = options
+        @fields = {}
       end
 
       def self.from_markdown(text, **options)

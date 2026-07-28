@@ -16,23 +16,34 @@ module Transpareo
     # replaced to declare the form. A reader that ignores the update
     # still sees the original static document.
     module FormFields
-      # Default appearance for text fields, required by the spec.
-      # Helvetica is one of the base fonts every viewer carries.
-      TEXT_DA = '/Helv 10 Tf 0 g'
+      # Text-field rectangles are inset relative to the printed box:
+      # the left inset pads typed text away from the printed border,
+      # and the downward shift settles the viewer's vertically
+      # centred text just above the printed rule, the way writing
+      # sits on a ruled line, without floating up to the box centre.
+      # Checkboxes keep the printed box exactly, so the tick lands
+      # inside it.
+      TEXT_PAD_LEFT = 3.0
+      TEXT_DROP = 0.5
 
       module_function
 
-      # Returns the number of fields created, zero when the PDF has
-      # no editable annotations.
-      def call(pdf_path)
+      # Rewrites the annotations named in `manifest`, the filter's
+      # {destination name => field spec} record. Returns the number
+      # of fields created, zero when nothing matched.
+      def call(pdf_path, manifest, font_size: nil)
+        return 0 if manifest.nil? || manifest.empty?
+
         bytes = File.binread(pdf_path)
         objects = PDF::Reader.new(pdf_path).objects
         guard(objects)
 
-        fields = editable_annotations(objects)
+        fields = editable_annotations(objects, manifest)
         return 0 if fields.empty?
 
-        File.binwrite(pdf_path, bytes + update(bytes, objects, fields))
+        default_da = default_appearance(font_size)
+        revision = update(bytes, objects, fields, default_da)
+        File.binwrite(pdf_path, bytes + revision)
         fields.size
       end
 
@@ -50,34 +61,36 @@ module Transpareo
       end
 
       # Every link annotation whose destination the filter planted,
-      # with the page it sits on and what its name encodes.
-      def editable_annotations(objects)
+      # joined with its manifest spec and the page it sits on.
+      def editable_annotations(objects, manifest)
         objects.page_references.flat_map do |page_ref|
           page = objects.deref(page_ref)
           Array(objects.deref(page[:Annots])).filter_map do |ref|
             next unless ref.is_a?(PDF::Reader::Reference)
 
-            field_from(objects.deref(ref), ref, page_ref)
+            annot = objects.deref(ref)
+            spec = manifest[annot[:Dest].to_s]
+            next unless spec
+
+            spec.merge(ref: ref, page: page_ref, rect: annot[:Rect])
           end
         end
       end
 
-      def field_from(annot, ref, page_ref)
-        dest = annot[:Dest].to_s
-        base = { ref: ref, page: page_ref, rect: annot[:Rect] }
-        if (m = Filters::EditableFields::CHECKBOX_RE.match(dest))
-          base.merge(kind: :checkbox, number: m[1].to_i,
-                     checked: !m[2].nil?,)
-        elsif (m = Filters::EditableFields::TEXT_RE.match(dest))
-          base.merge(kind: :text, number: m[1].to_i)
-        end
+      # One point under the body size, so typed text reads as part
+      # of the document without crowding the box. CSS pt survive
+      # printing one to one, no px scale factor involved.
+      def default_appearance(font_size)
+        body = font_size.to_s.to_f
+        body = 11.0 unless body.positive?
+        "/Helv #{format('%g', body - 1)} Tf 0 g"
       end
 
       # The appended revision: the shared objects each field kind
       # needs, one widget per field reusing the link's object
       # number, the catalog with the form declaration, and the
       # cross-reference section that makes them current.
-      def update(bytes, objects, fields)
+      def update(bytes, objects, fields, default_da)
         out = +''
         out << "\n" unless bytes.end_with?("\n")
         offsets = {}
@@ -86,7 +99,8 @@ module Transpareo
           out << "#{number} 0 obj\n#{body}\nendobj\n"
         end
 
-        add_objects(add, objects, fields, allocate_ids(objects, fields))
+        ids = allocate_ids(objects, fields)
+        add_objects(add, objects, fields, ids, default_da)
 
         xref_at = bytes.bytesize + out.bytesize
         out << xref_table(offsets)
@@ -109,13 +123,13 @@ module Transpareo
         ids
       end
 
-      def add_objects(add, objects, fields, ids)
+      def add_objects(add, objects, fields, ids, default_da)
         add_shared(add, fields, ids)
         fields.each do |field|
-          add.call(field[:ref].id, ser(widget(field, ids)))
+          add.call(field[:ref].id, ser(widget(field, ids, default_da)))
         end
-        add.call(objects.trailer[:Root].id,
-                 ser(form_catalog(objects, fields, ids)),)
+        catalog = form_catalog(objects, fields, ids, default_da)
+        add.call(objects.trailer[:Root].id, ser(catalog))
       end
 
       # The checkbox rectangles all come from one CSS rule, and a
@@ -130,36 +144,49 @@ module Transpareo
         box = fields.find { |field| field[:kind] == :checkbox }
         width = box[:rect][2] - box[:rect][0]
         height = box[:rect][3] - box[:rect][1]
-        add.call(ids[:yes],
-                 appearance(width, height, tick(width, height)),)
+        on = appearance(width, height, tick(width, height))
+        add.call(ids[:yes], on)
         add.call(ids[:off], appearance(width, height, ''))
       end
 
-      def widget(field, ids)
+      def widget(field, ids, default_da)
         specific = if field[:kind] == :checkbox
                      checkbox_widget(field, ids)
                    else
-                     text_widget(field)
+                     text_widget(field, default_da)
                    end
-        {
-          Type: :Annot, Subtype: :Widget, F: 4,
-          Rect: field[:rect], P: field[:page],
-        }.merge(specific)
+        base = {
+          Type: :Annot,
+          Subtype: :Widget,
+          F: 4,
+          Rect: rect_for(field),
+          P: field[:page],
+        }
+        base.merge(specific)
+      end
+
+      def rect_for(field)
+        return field[:rect] unless field[:kind] == :text
+
+        x1, y1, x2, y2 = field[:rect]
+        [x1 + TEXT_PAD_LEFT, y1 - TEXT_DROP, x2, y2 - TEXT_DROP]
       end
 
       def checkbox_widget(field, ids)
         state = field[:checked] ? :Yes : :Off
         {
-          FT: :Btn, T: "checkbox-#{field[:number]}",
-          V: state, AS: state,
+          FT: :Btn,
+          T: field[:name],
+          V: state,
+          AS: state,
           AP: { N: { Yes: ref(ids[:yes]), Off: ref(ids[:off]) } },
         }
       end
 
       # No appearance stream: the field starts empty, and viewers
       # build the appearance from /DA once someone types.
-      def text_widget(field)
-        { FT: :Tx, T: "text-#{field[:number]}", V: '', DA: TEXT_DA }
+      def text_widget(field, default_da)
+        { FT: :Tx, T: field[:name], V: '', DA: default_da }
       end
 
       # A form XObject drawn with plain path operators, so no font
@@ -168,12 +195,15 @@ module Transpareo
       # printed from the filter's CSS, and stays visible under a
       # transparent appearance.
       def appearance(width, height, content)
-        dict = ser(
-          Type: :XObject, Subtype: :Form, FormType: 1,
+        dict = {
+          Type: :XObject,
+          Subtype: :Form,
+          FormType: 1,
           BBox: [0, 0, width, height],
-          Resources: {}, Length: content.bytesize,
-        )
-        "#{dict}\nstream\n#{content}\nendstream"
+          Resources: {},
+          Length: content.bytesize,
+        }
+        "#{ser(dict)}\nstream\n#{content}\nendstream"
       end
 
       def tick(width, height)
@@ -194,10 +224,10 @@ module Transpareo
       # The replacement catalog: everything the original said, plus
       # the form declaration listing every widget. Text fields need
       # the form-level font resource their /DA names.
-      def form_catalog(objects, fields, ids)
+      def form_catalog(objects, fields, ids, default_da)
         form = { Fields: fields.map { |field| field[:ref] } }
         if ids[:font]
-          form[:DA] = TEXT_DA
+          form[:DA] = default_da
           form[:DR] = { Font: { Helv: ref(ids[:font]) } }
         end
         catalog = objects.deref(objects.trailer[:Root]).dup

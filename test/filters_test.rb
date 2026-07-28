@@ -60,10 +60,11 @@ class FiltersTest < Minitest::Test
     html = render_html("- [ ] open\n- [x] done\n", editable: true)
     anchors = Nokogiri::HTML5.fragment(html).css('a.form-checkbox')
 
-    assert_equal(%w[md2pdf.cb.1 md2pdf.cb.2x],
-                 anchors.map { |a| a['id'] },)
-    assert_equal(%w[#md2pdf.cb.1 #md2pdf.cb.2x],
-                 anchors.map { |a| a['href'] },)
+    ids = anchors.map { |a| a['id'] }
+    hrefs = anchors.map { |a| a['href'] }
+
+    assert_equal %w[md2pdf.f.1 md2pdf.f.2], ids
+    assert_equal %w[#md2pdf.f.1 #md2pdf.f.2], hrefs
     refute_includes html, '<input'
   end
 
@@ -71,7 +72,7 @@ class FiltersTest < Minitest::Test
     src = "| ok |\n|---|\n| <input type=\"checkbox\" checked> |\n"
     html = render_html(src, editable: true)
 
-    assert_includes html, 'id="md2pdf.cb.1x"'
+    assert_includes html, 'id="md2pdf.f.1"'
     refute_includes html, '<input'
   end
 
@@ -79,12 +80,34 @@ class FiltersTest < Minitest::Test
     src = "Name: <input type=\"text\" size=\"30\">\n\nBare: <input>\n"
     html = render_html(src, editable: true)
     anchors = Nokogiri::HTML5.fragment(html).css('a.form-text')
+    ids = anchors.map { |a| a['id'] }
 
-    assert_equal(%w[md2pdf.tx.1 md2pdf.tx.2],
-                 anchors.map { |a| a['id'] },)
+    assert_equal %w[md2pdf.f.1 md2pdf.f.2], ids
     assert_equal 'width: 30ch', anchors.first['style']
     assert_nil anchors.last['style']
     refute_includes html, '<input'
+  end
+
+  def test_editable_fields_record_a_manifest
+    src = "- [ ] open\n- [x] done\n\nName: <input size=\"5\">\n"
+    doc = Document.from_markdown(src)
+    doc.apply([Filters::EditableFields])
+
+    expected = {
+      'md2pdf.f.1' => {
+        kind: :checkbox,
+        name: 'checkbox-1',
+        checked: false,
+      },
+      'md2pdf.f.2' => {
+        kind: :checkbox,
+        name: 'checkbox-2',
+        checked: true,
+      },
+      'md2pdf.f.3' => { kind: :text, name: 'text-1' },
+    }
+
+    assert_equal expected, doc.fields
   end
 
   def test_inputs_stay_native_without_editable

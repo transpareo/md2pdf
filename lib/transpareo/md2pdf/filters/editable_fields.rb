@@ -10,17 +10,15 @@ module Transpareo
       # anchor pointing into the document survives as a link
       # annotation carrying the element's exact page rectangle.
       # FormFields later rewrites those annotations into fillable
-      # fields. The field's kind, order and checked state travel in
-      # the anchor id, because the destination name is the only part
-      # of this markup that reaches the PDF.
+      # fields, looking each one up by its destination name in the
+      # manifest this filter records on the document: the name is
+      # the only part of this markup that survives printing, so it
+      # is kept opaque and everything else rides in the manifest.
       #
-      # The id's dots keep it out of Slugs territory: heading slugs
-      # strip punctuation, so no heading can ever produce one of
-      # these names and hand its TOC link to a form field.
+      # The name's dots keep it out of Slugs territory: heading
+      # slugs strip punctuation, so no heading can ever produce one
+      # and hand its TOC link to a form field.
       module EditableFields
-        CHECKBOX_RE = /\Amd2pdf\.cb\.(\d+)(x)?\z/
-        TEXT_RE = /\Amd2pdf\.tx\.(\d+)\z/
-
         module_function
 
         def call(doc)
@@ -34,8 +32,13 @@ module Transpareo
         def replace_checkboxes(doc)
           doc.fragment.css('input[type="checkbox"]')
             .each_with_index do |input, index|
-            checked = !input['checked'].nil?
-            input.replace(doc.build(checkbox(index + 1, checked)))
+            spec = {
+              kind: :checkbox,
+              name: "checkbox-#{index + 1}",
+              checked: !input['checked'].nil?,
+            }
+            id = register(doc, spec)
+            input.replace(doc.build(anchor(id, 'form-checkbox')))
           end
         end
 
@@ -43,24 +46,27 @@ module Transpareo
         def replace_text_inputs(doc)
           doc.fragment.css('input[type="text"], input:not([type])')
             .each_with_index do |input, index|
-            input.replace(doc.build(text(index + 1, input['size'])))
+            spec = { kind: :text, name: "text-#{index + 1}" }
+            id = register(doc, spec)
+            html = anchor(id, 'form-text', width: input['size'])
+            input.replace(doc.build(html))
           end
         end
 
-        def checkbox(number, checked)
-          id = "md2pdf.cb.#{number}#{'x' if checked}"
-          %(<a class="form-checkbox" href="##{id}" id="#{id}"></a>)
+        def register(doc, spec)
+          id = "md2pdf.f.#{doc.fields.size + 1}"
+          doc.fields[id] = spec
+          id
         end
 
         # The size attribute counts characters, which is exactly
         # what the ch unit measures; anything else keeps the
         # stylesheet's default width.
-        def text(number, size)
-          id = "md2pdf.tx.#{number}"
-          width = ''
-          width = %( style="width: #{size}ch") if
-            size.to_s.match?(/\A\d+\z/)
-          %(<a class="form-text" href="##{id}" id="#{id}"#{width}></a>)
+        def anchor(id, css_class, width: nil)
+          attrs = %(class="#{css_class}" href="##{id}" id="#{id}")
+          attrs += %( style="width: #{width}ch") if
+            width.to_s.match?(/\A\d+\z/)
+          "<a #{attrs}></a>"
         end
       end
     end

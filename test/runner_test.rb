@@ -250,25 +250,39 @@ class RunnerTest < Minitest::Test
     assert_nil style[:footer_title]
   end
 
-  def test_build_html_wraps_body_in_a_document
-    html = Runner.build_html(
-      "# Title\n\ntext\n",
-      {
-        flat: false,
-        toc: false,
-        toc_depth: 2,
-        toc_label: nil,
-        footnotes_label: nil,
-        locale: 'de',
-        basename: 'doc',
-        css: 'body{}',
-      },
-      {},
-    )
+  def test_write_html_wraps_body_in_a_document
+    Dir.mktmpdir do |dir|
+      path = File.join(dir, 'doc.html')
+      Runner.write_html(path, "# Title\n\ntext\n", write_options, {})
+      html = File.read(path)
 
-    assert_includes html, '<!DOCTYPE html>'
-    assert_includes html, '<html lang="de">'
-    assert_includes html, '<title>doc</title>'
-    assert_includes html, 'body{}'
+      assert_includes html, '<!DOCTYPE html>'
+      assert_includes html, '<html lang="de">'
+      assert_includes html, '<title>doc</title>'
+      assert_includes html, 'body{}'
+    end
+  end
+
+  def test_write_html_returns_the_field_manifest
+    Dir.mktmpdir do |dir|
+      path = File.join(dir, 'doc.html')
+      options = write_options.merge(editable: true)
+      fields = Runner.write_html(path, "- [ ] open\n", options, {})
+
+      assert_equal ['md2pdf.f.1'], fields.keys
+    end
+  end
+
+  def write_options
+    {
+      flat: false,
+      toc: false,
+      toc_depth: 2,
+      toc_label: nil,
+      footnotes_label: nil,
+      locale: 'de',
+      basename: 'doc',
+      css: 'body{}',
+    }
   end
 end

@@ -92,10 +92,12 @@ class IntegrationTest < Minitest::Test
     in_document(tasks_source) do |md, dir|
       capture_io { Transpareo::Md2pdf.convert(md, editable: true) }
       fields = fields_of(File.join(dir, 'doc.pdf'))
+      names = fields.map { |f| f[:T] }
 
-      assert_equal(%w[checkbox-1 checkbox-2],
-                   fields.map { |f| f[:T] },)
-      assert_equal(%i[Off Yes], fields.map { |f| f[:V] })
+      values = fields.map { |f| f[:V] }
+
+      assert_equal %w[checkbox-1 checkbox-2], names
+      assert_equal %i[Off Yes], values
       fields.each do |field|
         assert_equal :Widget, field[:Subtype]
         assert_operator field[:Rect][2] - field[:Rect][0], :>, 5
@@ -109,11 +111,14 @@ class IntegrationTest < Minitest::Test
       capture_io { Transpareo::Md2pdf.convert(md, editable: true) }
       fields = fields_of(File.join(dir, 'doc.pdf'))
 
-      assert_equal(['text-1'], fields.map { |f| f[:T] })
+      names = fields.map { |f| f[:T] }
+
+      assert_equal ['text-1'], names
       assert_equal :Tx, fields.first[:FT]
       assert_includes fields.first[:DA], 'Helv'
-      assert_operator fields.first[:Rect][2] - fields.first[:Rect][0],
-                      :>, 100
+      width = fields.first[:Rect][2] - fields.first[:Rect][0]
+
+      assert_operator width, :>, 100
     end
   end
 
@@ -137,7 +142,7 @@ class IntegrationTest < Minitest::Test
 
   def test_editable_falls_back_to_static_when_injection_fails
     in_document(tasks_source) do |md, dir|
-      boom = lambda do |_pdf|
+      boom = proc do
         raise Transpareo::Md2pdf::Error, 'no room at the inn'
       end
       err = Transpareo::Md2pdf::FormFields.stub(:call, boom) do
@@ -155,8 +160,11 @@ class IntegrationTest < Minitest::Test
 
   def test_missing_chromium_raises_a_helpful_error
     in_document(short_source) do |md, _dir|
-      with_env('CHROMIUM' => '/definitely/not/a/browser',
-               'MD2PDF_HOME' => '/nope',) do
+      env = {
+        'CHROMIUM' => '/definitely/not/a/browser',
+        'MD2PDF_HOME' => '/nope',
+      }
+      with_env(env) do
         error = assert_raises(
           Transpareo::Md2pdf::MissingDependencyError,
         ) { capture_io { Transpareo::Md2pdf.convert(md) } }

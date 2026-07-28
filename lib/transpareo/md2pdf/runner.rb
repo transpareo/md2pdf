@@ -59,9 +59,7 @@ module Transpareo
         source = source_text || read_file(md_path)
         return false unless source
 
-        text = Config.strip_front_matter(source)
-        text = Unwrap.call(text) if unwrap
-        warn 'md2pdf: input is empty' if text.strip.empty?
+        text = prepare_text(source, unwrap)
         toc &&= h2_count(text) >= toc_min &&
                 word_count(text) >= toc_min_words
 
@@ -76,6 +74,7 @@ module Transpareo
           editable: editable,
           basename: basename,
           base_dir: base_dir_for(md_path),
+          font_size: style[:font_size],
           css: Style.build(**with_footer_title(style, text)),
         }
 
@@ -92,6 +91,13 @@ module Transpareo
 
         warn "md2pdf: not found: #{md_path}"
         nil
+      end
+
+      def prepare_text(source, unwrap)
+        text = Config.strip_front_matter(source)
+        text = Unwrap.call(text) if unwrap
+        warn 'md2pdf: input is empty' if text.strip.empty?
+        text
       end
 
       # The markdown parser only accepts UTF-8, while Ruby tags what
@@ -179,26 +185,31 @@ module Transpareo
       end
 
       def render(text, pdf_path, options)
-        print_passes(text, pdf_path, options)
-        attach_fields(text, pdf_path, options) if options[:editable]
+        fields = print_passes(text, pdf_path, options)
+        return unless options[:editable]
+
+        attach_fields(text, pdf_path, options, fields)
       end
 
       # Runs the second pass only when the first actually produced
-      # destinations to resolve.
+      # destinations to resolve. Returns the field manifest the
+      # filters collected while building the HTML.
       def print_passes(text, pdf_path, options)
+        fields = {}
         Dir.mktmpdir('md2pdf') do |tmpdir|
           html_path = File.join(tmpdir, 'doc.html')
 
-          File.write(html_path, build_html(text, options, {}))
+          fields = write_html(html_path, text, options, {})
           print_pdf(html_path, pdf_path)
           next unless options[:toc]
 
           pages = PageIndex.call(pdf_path)
           next if pages.empty?
 
-          File.write(html_path, build_html(text, options, pages))
+          write_html(html_path, text, options, pages)
           print_pdf(html_path, pdf_path)
         end
+        fields
       end
 
       # In editable mode the page content draws every box empty and
@@ -206,15 +217,17 @@ module Transpareo
       # cannot be added, checked boxes would print as unchecked. The
       # fallback is a fresh static render, where Chromium draws the
       # ticks and the native inputs.
-      def attach_fields(text, pdf_path, options)
-        FormFields.call(pdf_path)
+      def attach_fields(text, pdf_path, options, fields)
+        FormFields.call(pdf_path, fields, font_size: options[:font_size])
       rescue StandardError => e
         warn 'md2pdf: could not add form fields, rendering a ' \
              "static document: #{e.message}"
         print_passes(text, pdf_path, options.merge(editable: false))
       end
 
-      def build_html(text, options, pages)
+      # Builds, filters and writes one HTML rendition; returns the
+      # field manifest collected by the filters.
+      def write_html(html_path, text, options, pages)
         doc = Document.from_markdown(
           text,
           toc: options[:toc],
@@ -224,16 +237,20 @@ module Transpareo
           base_dir: options[:base_dir],
           toc_pages: pages,
         )
-        doc.apply(Filters.chain(
-          flat: options[:flat], toc: options[:toc],
+        chain = Filters.chain(
+          flat: options[:flat],
+          toc: options[:toc],
           editable: options[:editable],
-        ))
-        Renderer.document(
+        )
+        doc.apply(chain)
+        html = Renderer.document(
           body: doc.to_html,
           title: options[:basename],
           css: options[:css],
           lang: options[:locale],
         )
+        File.write(html_path, html)
+        doc.fields
       end
 
       def print_pdf(html_path, pdf_path)
