@@ -7,7 +7,11 @@
 
 Markdown to PDF, rendered through headless Chromium. Tables, code
 blocks and CSS behave the way they do on the web, because a browser
-is doing the layout.
+is doing the layout. And with `--editable`, checkboxes, text
+inputs, radio buttons, textareas and dropdowns in the markdown
+become real, fillable PDF form fields, set in the document's own
+font, which no browser and none of the usual converters can
+produce at all.
 
 [**See this README rendered by md2pdf**](docs/README.pdf) - the
 image below is that PDF.
@@ -35,6 +39,7 @@ print.
 | Layout engine | current Chromium | your own bounding boxes | WebKit, ~2012 | LaTeX |
 | CSS support | whatever Chrome does | none | partial, dated | none |
 | TOC page numbers | read from the PDF | manual | manual | yes |
+| Fillable forms | `--editable`, [from markdown](#editable-pdfs) | no | no | raw LaTeX only |
 | External programs | Chromium | none | wkhtmltopdf | pandoc + TeX |
 | Install size | browser only | gem only | ~50 MB | ~2 GB with TeX |
 
