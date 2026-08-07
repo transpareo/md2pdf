@@ -38,6 +38,26 @@ class IntegrationTest < Minitest::Test
     end
   end
 
+  def test_resolves_pages_for_headings_with_non_ascii_ids
+    sections = %w[Kürze Prüfung Größe Qualität].map do |word|
+      "## #{word}\n\n#{LONG_BODY}\n"
+    end
+    source = "# Umlaute\n\n#{sections.join("\n")}"
+    in_document(source) do |md, dir|
+      capture_io { Transpareo::Md2pdf.convert(md) }
+      pdf = File.join(dir, 'doc.pdf')
+
+      pages = Transpareo::Md2pdf::PageIndex.call(pdf)
+
+      %w[kürze prüfung größe qualität].each do |id|
+        assert_includes pages.keys, id
+      end
+
+      refute_includes page_text(pdf, 2), '?',
+                      'TOC shows placeholders for umlaut headings'
+    end
+  end
+
   def test_page_index_maps_headings_to_ascending_pages
     in_document(long_source) do |md, dir|
       capture_io { Transpareo::Md2pdf.convert(md) }

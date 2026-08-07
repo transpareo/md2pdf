@@ -93,6 +93,12 @@ and a fresh `## [Unreleased]` opens above it.
 
 ### Fixed
 
+- TOC page numbers showed `?` for every heading containing a
+  non-ASCII character. Chromium names each PDF destination after
+  the URL fragment of the link that points at it, so an id like
+  `kürze` arrived percent-encoded as `k%C3%BCrze` and never
+  matched the heading id the TOC looks up. Destination names are
+  now decoded back to UTF-8 before the lookup.
 - Relative `logo`, `custom-css`, `output` and `output-dir` paths
   resolve against the file that declared them: a config file
   against itself, front matter against its document, a flag against

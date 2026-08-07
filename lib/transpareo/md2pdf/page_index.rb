@@ -25,11 +25,23 @@ module Transpareo
         destinations(objects, catalog).each_with_object({}) do |kv, out|
           name, value = kv
           page = resolve_page(objects, value, numbers)
-          out[name.to_s] = page if page
+          out[decode(name)] = page if page
         end
       rescue StandardError => e
         warn "md2pdf: could not read page numbers: #{e.message}"
         {}
+      end
+
+      # Chromium names each destination after the URL fragment of
+      # the link that points at it, so a non-ASCII heading id
+      # arrives percent-encoded: `k%C3%BCrze` for `kürze`. Decoding
+      # restores the document's id; a name whose decoded bytes are
+      # not valid UTF-8 was never percent-encoded text and is kept
+      # as it came.
+      def decode(name)
+        raw = name.to_s.gsub(/%\h\h/) { |hex| hex[1, 2].to_i(16).chr }
+        utf = raw.force_encoding(Encoding::UTF_8)
+        utf.valid_encoding? ? utf : name.to_s
       end
 
       # Maps each page's object reference to its 1-based number by
