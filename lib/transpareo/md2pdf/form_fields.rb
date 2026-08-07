@@ -59,9 +59,7 @@ module Transpareo
       # Both conditions are outside what Chromium produces, and
       # writing into either would corrupt more than it adds.
       def guard(objects)
-        if objects.trailer[:Encrypt]
-          raise Error, 'cannot add form fields to an encrypted PDF'
-        end
+        raise Error, 'cannot add form fields to an encrypted PDF' if objects.trailer[:Encrypt]
 
         catalog = objects.deref(objects.trailer[:Root])
         return unless catalog[:AcroForm]
@@ -639,9 +637,7 @@ module Transpareo
                                 invalid: :replace,
                                 undef: :replace,
                                 replace: '?',)
-          if encoded.include?('?') && !text.include?('?')
-            warn "md2pdf: field text reduced to Latin script: #{text}"
-          end
+          warn "md2pdf: field text reduced to Latin script: #{text}" if encoded.include?('?') && !text.include?('?')
           encoded.force_encoding(Encoding::BINARY)
         end
 

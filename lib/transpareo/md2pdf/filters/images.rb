@@ -67,9 +67,7 @@ module Transpareo
           end
 
           bytes = File.binread(path)
-          if bytes.bytesize > LARGE_FILE_BYTES
-            warn "md2pdf: large image (#{bytes.bytesize / 1024 / 1024} MB): #{File.basename(path)}"
-          end
+          warn "md2pdf: large image (#{bytes.bytesize / 1024 / 1024} MB): #{File.basename(path)}" if bytes.bytesize > LARGE_FILE_BYTES
 
           "data:#{mime};base64,#{[bytes].pack('m0')}"
         end
