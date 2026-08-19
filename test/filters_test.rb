@@ -288,6 +288,39 @@ class FiltersTest < Minitest::Test
     refute_includes html, 'toc-l3'
   end
 
+  def test_toc_omits_intro_headings
+    src = "# T\n\n::: intro\n\n## What this is\n\n" \
+          "### Audience\n\nhi\n\n:::\n\n## Real\n"
+    html = render_html(src, toc: true)
+    entries = Nokogiri::HTML5.fragment(html)
+      .css('#TOC .toc-text').map(&:text)
+
+    assert_equal ['Real'], entries
+    assert_includes html, '<h2 id="what-this-is">'
+  end
+
+  # The nav must land before the first body H2, never inside the
+  # intro: anchoring on the intro's own H2 pushes the intro past
+  # the contents and empties the title page.
+  def test_toc_anchors_after_intro_block
+    src = "# T\n\n::: intro\n\n## What this is\n\nhi\n\n" \
+          ":::\n\n## Real\n"
+    doc = Document.from_markdown(
+      src,
+      toc: true,
+      toc_depth: 2,
+      toc_label: 'Contents',
+      footnotes_label: 'Footnotes',
+      toc_pages: {},
+    )
+    doc.apply([Filters::Slugs, Filters::Toc])
+    intro = doc.fragment.at_css('div.intro')
+
+    assert_nil intro.at_css('#TOC')
+    assert_equal 'div', doc.fragment.at_css('#TOC')
+      .previous_element.name
+  end
+
   def test_toc_depth_three_includes_h4
     html = render_html(
       "## A\n\n### B\n\n#### C\n", toc: true, toc_depth: 3,

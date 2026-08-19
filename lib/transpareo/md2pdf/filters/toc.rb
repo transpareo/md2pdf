@@ -9,23 +9,38 @@ module Transpareo
       # H2, so the title keeps page 1 and the TOC lands on its own
       # page. Page numbers come from the previous render pass and
       # show as `?` on the first pass, before any are known.
+      #
+      # The contents list nothing that precedes them. Front matter
+      # is either nested (the title-page wrapper, an intro block)
+      # or sits above the first body H2, so the anchor is the first
+      # H2 at the top level and everything before it is skipped.
       module Toc
         module_function
 
         def call(doc)
           depth = doc[:toc_depth] || 2
           levels = 2..(depth + 1)
-          headings = doc.headings(levels)
+          anchor = doc.fragment.css('h2').find { |h| top_level?(h) }
+          headings = listed(doc.headings(levels), anchor)
           return if headings.empty?
 
           nav = doc.build(markup(doc, headings)).at_css('nav')
-          anchor = doc.fragment.at_css('h2')
 
           if anchor
             anchor.add_previous_sibling(nav)
           else
             doc.fragment.children.first&.add_previous_sibling(nav)
           end
+        end
+
+        def top_level?(node)
+          node.ancestors.none?(&:element?)
+        end
+
+        def listed(headings, anchor)
+          return headings.to_a unless anchor
+
+          headings.to_a.drop(headings.index(anchor) || 0)
         end
 
         def markup(doc, headings)
