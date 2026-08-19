@@ -508,10 +508,28 @@ to appear automatically. `--toc` overrides both.
 | `--line-height=N` | `line-height` | `1.8` |
 | `--font-family="..."` | `font-family` | Plus Jakarta Sans, DejaVu Sans, Helvetica |
 | `--code-font-family="..."` | `code-font-family` | JetBrains Mono, DejaVu Sans Mono, Menlo |
+| `--no-hyphens` | `hyphens: false` | hyphenation on |
 
 Fonts must be installed on the rendering machine. Chromium falls
 back silently if one is missing, so check the output when using a
 font the machine may not have.
+
+Prose is hyphenated by default. It matters most in German, where a
+compound too long for the tail of a line otherwise moves whole to
+the next one and leaves a gap wide enough to read as a defect,
+worst in a narrow measure such as a table cell.
+
+Hyphenation applies to paragraphs, list items, blockquotes and
+table cells. Headings, code, links, the table of contents and
+centred text are left alone, so an identifier or a URL never
+acquires a hyphen that reads as part of it. It also needs the
+document's language, which md2pdf takes from `--locale` or from a
+filename like `report.de.md`, and a hyphenation dictionary for
+that language in the bundled Chromium; English, German, French and
+Dutch have one, and a language without one is simply left
+unhyphenated rather than broken in the wrong places.
+
+Pass `--no-hyphens`, or set `hyphens: false`, to turn it off.
 
 ### Layout
 

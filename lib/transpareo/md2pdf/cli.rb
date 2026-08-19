@@ -70,6 +70,11 @@ module Transpareo
           --line-height=N        Body line-height. Default 1.8.
           --font-family="..."    Body font stack.
           --code-font-family=".."  Monospace stack for code.
+          --no-hyphens           Turn off automatic hyphenation.
+                                 It is on by default, and applies
+                                 to prose only, in locales the
+                                 bundled Chromium has a dictionary
+                                 for.
 
         Layout:
           --page-size=NAME       A4, Letter, A5, Legal, etc. Default A4.
@@ -120,6 +125,7 @@ module Transpareo
         '--no-header-logo' => [:header_logo, false],
         '--no-footer-logo' => [:footer_logo, false],
         '--no-page-numbers' => [:page_numbers, false],
+        '--no-hyphens' => [:hyphens, false],
         '--open' => :open,
       }.freeze
 

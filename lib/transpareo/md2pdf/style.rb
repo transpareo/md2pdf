@@ -30,6 +30,7 @@ module Transpareo
         header_logo: true,
         footer_logo: true,
         page_numbers: true,
+        hyphens: true,
         logo: nil,
         custom_css: nil,
         footer_title: nil,
@@ -38,7 +39,7 @@ module Transpareo
       # Keys the ERB template reads straight off the config.
       PASSTHROUGH_KEYS = %i[
         font_size line_height font_family code_font_family
-        page_size margins link_color page_numbers
+        page_size margins link_color page_numbers hyphens
       ].freeze
 
       module_function

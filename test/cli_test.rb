@@ -56,6 +56,12 @@ class CLITest < Minitest::Test
     refute opts[:page_numbers]
   end
 
+  def test_no_hyphens_turns_hyphenation_off
+    opts, = CLI.parse(%w[--no-hyphens doc.md])
+
+    refute opts[:hyphens]
+  end
+
   def test_toc_flag_clears_the_auto_skip_thresholds
     opts, = CLI.parse(%w[--toc])
 

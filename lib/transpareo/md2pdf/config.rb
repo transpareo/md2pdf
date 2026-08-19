@@ -21,7 +21,7 @@ module Transpareo
         page_size margins
         output output_dir
         logo header_logo footer_logo page_numbers footer_title
-        link_color custom_css
+        link_color custom_css hyphens
       ].freeze
 
       # `locales` is the one nested key: a map of locale code to

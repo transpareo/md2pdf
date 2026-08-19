@@ -129,6 +129,29 @@ class ConfigTest < Minitest::Test
     end
   end
 
+  # Hyphenation is on unless a config says otherwise, so a project
+  # that dislikes it can turn it off for every document at once.
+  def test_hyphens_can_be_switched_off_from_a_config_file
+    in_tree do |home|
+      project = mkdir(home, 'project')
+      write_config(project, "hyphens: false\n")
+      style = settings_for(project)[:style]
+
+      assert style.key?(:hyphens)
+      refute style[:hyphens]
+    end
+  end
+
+  # Unset means unmentioned, so the stylesheet's own default
+  # decides rather than a value invented here.
+  def test_an_unset_hyphens_key_is_left_out_of_the_style_settings
+    in_tree do |home|
+      style = settings_for(mkdir(home, 'project'))[:style]
+
+      refute style.key?(:hyphens)
+    end
+  end
+
   # The ancestor walk stops at HOME, so a document elsewhere would
   # otherwise get no personal defaults at all.
   def test_the_global_config_applies_outside_home

@@ -34,6 +34,15 @@ and a fresh `## [Unreleased]` opens above it.
   `font-size` carried into the field itself. If the fields
   cannot be added, the document is re-rendered as a static
   document instead.
+- Automatic hyphenation, on by default and switched off with
+  `--no-hyphens` or `hyphens: false`. Chromium needs both the CSS
+  property and the document's language, which md2pdf already
+  stamps on `<html>`, so long German compounds no longer move
+  whole to the next line and leave a ragged gap. Paragraphs, list
+  items, blockquotes and table cells are hyphenated; headings,
+  code, links, the table of contents and centred text are not, so
+  identifiers and URLs keep their own spelling. A language the
+  bundled Chromium has no dictionary for is left unhyphenated.
 - Images. Paths resolve relative to the markdown file rather than
   the working directory, and local files are embedded as data URIs
   so the finished PDF carries its own artwork. PNG, JPEG, GIF, SVG,

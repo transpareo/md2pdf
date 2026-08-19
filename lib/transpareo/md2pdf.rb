@@ -29,7 +29,7 @@ module Transpareo
     STYLE_KEYS = %i[
       font_size line_height font_family code_font_family
       page_size margins logo link_color custom_css
-      header_logo footer_logo page_numbers footer_title
+      header_logo footer_logo page_numbers footer_title hyphens
     ].freeze
 
     module_function

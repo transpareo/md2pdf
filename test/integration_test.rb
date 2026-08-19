@@ -10,6 +10,9 @@ class IntegrationTest < Minitest::Test
   SENTENCE = 'Lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore.'
   LONG_BODY = ([SENTENCE] * 30).join(' ')
 
+  # U+2010, what Chromium draws at a hyphenation break.
+  HYPHEN = "\u2010"
+
   def setup
     skip 'chromium not available' unless TestSupport.chromium?
   end
@@ -317,6 +320,28 @@ class IntegrationTest < Minitest::Test
     end
   end
 
+  # Chromium hyphenates only when the stylesheet asks for it and
+  # the document declares a language; either alone does nothing.
+  def test_german_prose_is_hyphenated
+    in_document(compound_source) do |md, dir|
+      capture_io do
+        Transpareo::Md2pdf.convert(md, **narrow_german)
+      end
+
+      assert_includes all_text(File.join(dir, 'doc.pdf')), HYPHEN
+    end
+  end
+
+  def test_hyphens_false_leaves_the_compounds_whole
+    in_document(compound_source) do |md, dir|
+      capture_io do
+        Transpareo::Md2pdf.convert(md, hyphens: false, **narrow_german)
+      end
+
+      refute_includes all_text(File.join(dir, 'doc.pdf')), HYPHEN
+    end
+  end
+
   def test_missing_chromium_raises_a_helpful_error
     in_document(short_source) do |md, _dir|
       env = {
@@ -340,6 +365,28 @@ class IntegrationTest < Minitest::Test
       File.write(md, source)
       with_env('MD2PDF_LOGO' => nil) { yield md, dir }
     end
+  end
+
+  # Long enough to need a break in a narrow measure, and placed
+  # after an H2 because the paragraph following an H1 is centred
+  # and deliberately left unhyphenated.
+  def compound_source
+    <<~MD
+      # Bericht
+
+      Lead.
+
+      ## Abschnitt
+
+      Verantwortungsbewusstsein allein reicht nicht: ohne
+      Uebereinstimmung zwischen Produktionsstandortdokumentation
+      und Wirtschaftspruefungsgesellschaft bleibt die
+      Betriebspruefung unvollstaendig.
+    MD
+  end
+
+  def narrow_german
+    { locale: 'de', toc: false, margins: '18mm 76mm 18mm 20mm' }
   end
 
   def short_source

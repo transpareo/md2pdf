@@ -76,6 +76,33 @@ class StyleTest < Minitest::Test
     assert_match(/custom CSS not found/, err)
   end
 
+  # Hyphenation
+
+  def test_hyphenation_is_on_by_default
+    css = with_env('MD2PDF_LOGO' => nil) { Style.build }
+
+    assert_includes css, 'hyphens: auto;'
+    assert_includes css, 'hyphenate-limit-chars: 6 3 3;'
+  end
+
+  def test_hyphens_false_drops_every_hyphenation_rule
+    css = with_env('MD2PDF_LOGO' => nil) do
+      Style.build(hyphens: false)
+    end
+
+    refute_includes css, 'hyphens:'
+    refute_includes css, 'hyphenate-limit-chars:'
+  end
+
+  # `hyphens` is inherited, so prose containers hand it to their
+  # children. Anything holding an identifier has to opt out again
+  # or the identifier acquires a hyphen that reads as its own.
+  def test_identifiers_and_links_opt_out_of_hyphenation
+    css = with_env('MD2PDF_LOGO' => nil) { Style.build }
+
+    assert_includes css, "code, pre, a {\n  hyphens: none;\n}"
+  end
+
   # Footer title
 
   def test_no_footer_title_box_by_default

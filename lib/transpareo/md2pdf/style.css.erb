@@ -115,6 +115,43 @@ h3 { font-size: 1.3em; margin: 1.9em 0 0.4em; }
 p  { margin: 0.55em 0; }
 ul, ol { margin: 0.4em 0 0.6em 0; padding-left: 1.6em; }
 li { margin: 0.15em 0; }
+<%- if hyphens -%>
+
+/* Hyphenation. Chromium needs this property and a lang attribute
+   on <html>; either one on its own does nothing. Without it a
+   long German compound moves whole to the next line and leaves a
+   gap wide enough to read as a defect, worst in a narrow measure
+   such as a table cell.
+
+   The limits break a word only from six characters up and leave
+   at least three either side, so short words stay intact and no
+   line ends on a two-letter stub. A locale with no dictionary in
+   the bundled Chromium gets no hyphenation rather than wrong
+   hyphenation. */
+p, li, blockquote, td {
+  hyphens: auto;
+  hyphenate-limit-chars: 6 3 3;
+}
+
+/* Names and addresses rather than prose. An inserted hyphen reads
+   as part of an identifier, and in a URL the reader cannot tell
+   it was never typed. Links are excluded wholesale because
+   autolink is on, which makes a bare URL indistinguishable from
+   link text in CSS. */
+code, pre, a {
+  hyphens: none;
+}
+
+/* Centred text and index entries, where a break at the line end
+   reads as a mistake rather than as typesetting. */
+.title-page,
+nav#TOC,
+h1 + p,
+header .subtitle,
+header .title + p {
+  hyphens: none;
+}
+<%- end -%>
 
 /* Boxes and blanks destined to become fillable form fields. Only
    the outline is drawn here: the content belongs to the field, so
