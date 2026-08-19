@@ -368,6 +368,26 @@ class FiltersTest < Minitest::Test
     refute_includes render_html("```\na/b\n```\n"), '<wbr>'
   end
 
+  # An apostrophe escapes to `&#39;`, whose `#` is a separator.
+  # Splitting the entity strands the ampersand and the reader
+  # sees the escape rather than the quote.
+  def test_keeps_entities_intact_in_inline_code
+    html = render_html("`{'en' => 1}`\n")
+
+    refute_includes html, '&amp;#'
+    assert_includes html, "'en'"
+  end
+
+  # The break marker is NUL. That is only safe because the parser
+  # rewrites one in the source to U+FFFD, so no marker can arrive
+  # in the text the filter splits.
+  def test_a_nul_in_the_source_cannot_reach_the_filter
+    html = render_html("`a\u0000b`\n")
+
+    refute_includes html, '<wbr>'
+    assert_includes html, "a\uFFFDb"
+  end
+
   def test_escapes_html_in_inline_code
     assert_includes render_html("`<script>`\n"), '&lt;script&gt;'
   end
