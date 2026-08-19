@@ -63,6 +63,69 @@ class MarkdownTest < Minitest::Test
     assert_includes html, '<a href="https://example.com"'
   end
 
+  # Ordinals
+
+  # CommonMark lets only `1.` interrupt a paragraph, so a German
+  # date at the head of a hard-wrapped line turned the rest of the
+  # sentence into a list item.
+  def test_a_wrapped_ordinal_stays_prose
+    html = Markdown.to_html(
+      "Eine ab dem\n1. Januar gültige Erklärung, und weiter.\n",
+    )
+
+    refute_includes html, '<ol'
+    assert_includes html, '1. Januar gültige Erklärung'
+  end
+
+  def test_an_ordinal_keeps_its_list_when_a_second_item_follows
+    html = Markdown.to_html("Schritte:\n1. Erstens\n2. Zweitens\n")
+
+    assert_includes html, '<ol'
+    assert_includes html, '<li>Erstens</li>'
+  end
+
+  # The first item is often wrapped over several lines, so the `2.`
+  # that proves it is a list can be some way down the block.
+  def test_a_second_item_after_a_wrapped_first_one_still_counts
+    html = Markdown.to_html(
+      "Schritte:\n1. Erstens, mit einer\n   Fortsetzung.\n2. Zweitens\n",
+    )
+
+    assert_includes html, '<ol'
+  end
+
+  # A colon introduces a list, so a single-item one is left alone
+  # rather than being read back as a sentence.
+  def test_a_lone_item_under_a_colon_stays_a_list
+    assert_includes Markdown.to_html("Vorgehen:\n1. Nur eins\n"), '<ol'
+  end
+
+  def test_trailing_emphasis_does_not_hide_the_colon
+    html = Markdown.to_html("**Vorgehen:**\n1. Nur eins\n")
+
+    assert_includes html, '<ol'
+  end
+
+  def test_a_list_after_a_blank_line_is_never_touched
+    assert_includes Markdown.to_html("Text\n\n1. Erstens\n"), '<ol'
+  end
+
+  def test_an_ordinal_inside_a_code_fence_is_left_verbatim
+    html = Markdown.to_html("Text:\n\n```\nam\n1. Januar\n```\n")
+
+    refute_includes html, '<ol'
+    assert_includes html, '1. Januar'
+  end
+
+  # The escape is an implementation detail of keeping the sentence
+  # whole and must not reach the reader as markup.
+  def test_the_escape_does_not_leak_into_the_html
+    html = Markdown.to_html("Eine ab dem\n1. Januar gültige Erklärung.\n")
+
+    refute_includes html, 'data-escaped-char'
+    refute_includes html, '1\.'
+  end
+
   def test_leaves_code_blocks_unhighlighted_for_the_filter
     html = Markdown.to_html("```ruby\ndef a; end\n```\n")
 

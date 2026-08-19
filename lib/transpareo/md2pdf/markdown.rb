@@ -31,18 +31,38 @@ module Transpareo
           # filter assigns ids instead, with no extra markup.
           header_ids: nil,
         },
-        render: { unsafe: true, hardbreaks: false },
+        render: {
+          unsafe: true,
+          hardbreaks: false,
+          # An escaped character renders as itself. The default
+          # wraps each one in a <span data-escaped-char>, which
+          # nothing styles and which would otherwise reach the
+          # filters and the PDF's text layer.
+          escaped_char_spans: false,
+        },
       }.freeze
 
       FENCE_RE = /\A\s*(?:```|~~~)/
       DIV_OPEN_RE = /\A:{3,}\s*\{?\.?([a-zA-Z][\w-]*)\}?\s*\z/
       DIV_CLOSE_RE = /\A:{3,}\s*\z/
 
+      FIRST_ITEM_RE = /\A1[.)]\s/
+      SECOND_ITEM_RE = /\A\s*2[.)]\s/
+
+      # A line that opens a block of its own, so a marker below it
+      # begins a list rather than interrupting a paragraph. Blank
+      # lines count: they end the paragraph above.
+      BLOCK_START_RE = /
+        \A\s*
+        (?:\z | [\#>|] | :{3,} | < | \[.*\]: | \d+[.)]\s | [-*+]\s
+          | `{3} | ~{3} | -{3,}\s*\z | ={3,}\s*\z)
+      /x
+
       module_function
 
       def to_html(text)
         Commonmarker.to_html(
-          utf8(expand_fenced_divs(text)),
+          utf8(expand_fenced_divs(guard_ordinals(text))),
           options: OPTIONS,
           plugins: { syntax_highlighter: nil },
         )
@@ -56,6 +76,69 @@ module Transpareo
         return text if text.encoding == Encoding::UTF_8
 
         text.dup.force_encoding(Encoding::UTF_8)
+      end
+
+      # Escapes a `1.` that opens a hard-wrapped line of prose, where
+      # CommonMark would otherwise start a list mid-sentence. Only
+      # `1.` may interrupt a paragraph, so every other ordinal
+      # already survives and this is the one that misfires on a date
+      # such as `1. Januar`. It is left alone where the document
+      # means a list.
+      def guard_ordinals(text)
+        lines = text.lines
+        in_code = false
+
+        guarded = lines.each_with_index.map do |line, i|
+          if line.match?(FENCE_RE)
+            in_code = !in_code
+            next line
+          end
+          next line if in_code || !line.match?(FIRST_ITEM_RE)
+          next line unless interrupts_paragraph?(lines, i)
+          next line if list_intended?(lines, i)
+
+          # `1\.` is a number and a full stop, not a list marker.
+          "1\\#{line[1..]}"
+        end
+
+        guarded.join
+      end
+
+      # True only directly under paragraph text, the one position
+      # where CommonMark starts a list in the middle of a sentence.
+      def interrupts_paragraph?(lines, index)
+        return false if index.zero?
+
+        !lines[index - 1].match?(BLOCK_START_RE)
+      end
+
+      def list_intended?(lines, index)
+        introduces_list?(lines[index - 1]) || second_item?(lines, index)
+      end
+
+      # Trailing emphasis and quotes do not change how a line ends,
+      # so `**Vorgehen:**` introduces a list as plainly as `Vorgehen:`.
+      def introduces_list?(line)
+        line.strip.sub(/[*_`"')\]]+\z/, '').end_with?(':')
+      end
+
+      # Looks for a `2.` through the rest of the block, so a first
+      # item wrapped over several lines still counts as a list.
+      def second_item?(lines, index)
+        blank = false
+        lines[(index + 1)..].each do |line|
+          if line.strip.empty?
+            return false if blank
+
+            blank = true
+            next
+          end
+          return true if line.match?(SECOND_ITEM_RE)
+          return false if blank && !line.start_with?(' ')
+
+          blank = false
+        end
+        false
       end
 
       # Rewrites `::: name` / `:::` pairs into raw div tags, which

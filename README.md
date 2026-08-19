@@ -281,6 +281,7 @@ Everything in GitHub Flavored Markdown, plus a few things beyond it.
 | Autolinks | Bare URLs become links |
 | Fenced divs | `::: name` blocks become `<div class="name">`, for callouts and title-page control |
 | Front matter | An `md2pdf:` YAML block, stripped before rendering |
+| Ordinals | A wrapped line starting `1.` stays prose unless it really opens a list |
 
 ### Images
 
@@ -337,6 +338,45 @@ after the title. See [Title page](#title-page).
 
 A `:::` inside a fenced code block is left alone, so documentation
 about fenced divs survives being documented.
+
+### Ordinals at the start of a line
+
+CommonMark lets an ordered list interrupt a paragraph, but only
+when it starts with `1.`. In hard-wrapped prose that is a trap,
+because a date is written the same way:
+
+```markdown
+Das regulatorische Umfeld ist voll davon: eine ab dem
+1. Januar gültige Konformitätserklärung, eine Änderung der
+Spezifikation zum Modelljahreswechsel.
+```
+
+Left alone, the sentence breaks in half and everything from
+"Januar" onwards becomes a numbered list item. `2.` through `9.`
+never had this problem, which is what makes it so easy to miss.
+
+md2pdf keeps such a line as prose. The marker is treated as a
+real list only where the document means one:
+
+- a second item follows it, anywhere in the same block, so a
+  first item wrapped over several lines still counts, or
+- the line above introduces it with a colon, as in `Vorgehen:`
+  or `**Fix path:**`.
+
+Anything separated from the paragraph by a blank line is a list
+and is never touched. If you do want a single-item list directly
+under a sentence that does not end in a colon, put a blank line
+before it.
+
+This covers paragraphs at the top level. A line wrapped **inside**
+a list item is left alone, because there the same marker is a
+legitimate nested list and telling the two apart needs more than
+the line above. Escape the dot by hand if a date lands there:
+
+```markdown
+- Eine Erklärung ab dem
+  1\. Januar gültig.
+```
 
 ### Table of contents
 

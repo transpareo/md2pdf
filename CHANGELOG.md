@@ -43,6 +43,14 @@ and a fresh `## [Unreleased]` opens above it.
   code, links, the table of contents and centred text are not, so
   identifiers and URLs keep their own spelling. A language the
   bundled Chromium has no dictionary for is left unhyphenated.
+- A hard-wrapped line starting with `1.` stays prose. CommonMark
+  lets an ordered list interrupt a paragraph when it starts with
+  `1.`, so a German date such as `1. Januar` at the head of a
+  wrapped line split the sentence and turned its tail into a list
+  item. The marker is now kept as a list only where the document
+  means one: a second item follows in the same block, or the line
+  above introduces it with a colon. A list after a blank line is
+  never touched.
 - Images. Paths resolve relative to the markdown file rather than
   the working directory, and local files are embedded as data URIs
   so the finished PDF carries its own artwork. PNG, JPEG, GIF, SVG,
