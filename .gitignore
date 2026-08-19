@@ -10,3 +10,5 @@
 !docs/README.pdf
 *.gem
 .rubocop_cache/
+# Working notes and drafts, personal to whoever is mid-task.
+/.todo/
