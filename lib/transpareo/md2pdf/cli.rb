@@ -84,6 +84,15 @@ module Transpareo
 
         Branding:
           --logo=PATH            Logo SVG. Footer auto-derives in grey.
+          --footer-logo=PATH     A separate SVG for the footer, also
+                                 set in grey. Without it the footer
+                                 derives from --logo.
+          --logo-height=MM       Header logo height; width follows
+                                 the SVG's aspect ratio. Without it
+                                 the logo fits a 42mm by 6.95mm box.
+          --footer-logo-height=MM  Footer logo height, likewise.
+                                 Without it the box is 18mm by
+                                 2.98mm.
           --footer-title=TEXT    Running text centred in the footer,
                                  between the logo and page number.
                                  Defaults to the document's H1.
@@ -145,6 +154,9 @@ module Transpareo
         '--output' => :output,
         '--output-dir' => :output_dir,
         '--logo' => :logo,
+        '--footer-logo' => :footer_logo,
+        '--logo-height' => :logo_height,
+        '--footer-logo-height' => :footer_logo_height,
         '--footer-title' => :footer_title,
         '--link-color' => :link_color,
         '--custom-css' => :custom_css,

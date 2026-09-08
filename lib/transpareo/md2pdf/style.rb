@@ -8,8 +8,14 @@ module Transpareo
     #
     # Logos are inlined as base64 data URIs so the rendered HTML has
     # no external references. The footer logo is derived from the
-    # same file as the header one by recolouring every fill to grey,
-    # so branding needs a single asset rather than two.
+    # header one by recolouring every fill to grey, so branding needs
+    # a single asset rather than two; a brand whose footer mark is a
+    # different drawing names a second file with `footer_logo`,
+    # which is recoloured the same way.
+    #
+    # Each placement is sized to a fixed box of roughly 6:1 unless a
+    # height is given, in which case the width follows the SVG's own
+    # aspect ratio and a square icon stays square.
     module Style
       HEADER_LOGO_WIDTH_MM = 42.0
       HEADER_LOGO_HEIGHT_MM = 6.95
@@ -17,6 +23,10 @@ module Transpareo
       FOOTER_LOGO_HEIGHT_MM = 2.98
 
       TEMPLATE_PATH = File.expand_path('style.css.erb', __dir__)
+
+      # The root element's own size attributes, replaced by the
+      # placement's size.
+      SIZE_ATTR_RE = /\s(width|height)="([^"]*)"/
 
       DEFAULTS = {
         font_size: '11pt',
@@ -32,6 +42,8 @@ module Transpareo
         page_numbers: true,
         hyphens: true,
         logo: nil,
+        logo_height: nil,
+        footer_logo_height: nil,
         custom_css: nil,
         footer_title: nil,
       }.freeze
@@ -56,7 +68,7 @@ module Transpareo
         logo = resolve_logo(cfg[:logo])
         cfg.slice(*PASSTHROUGH_KEYS).merge(
           header_uri: header_uri(cfg, logo),
-          footer_uri: footer_uri(cfg, logo),
+          footer_uri: footer_uri(cfg, footer_logo(cfg, logo)),
           footer_title: css_string(cfg[:footer_title]),
           custom_css: read_custom_css(cfg[:custom_css]),
         )
@@ -75,16 +87,51 @@ module Transpareo
       def header_uri(cfg, logo)
         return nil unless cfg[:header_logo] && logo
 
-        data_uri(logo, HEADER_LOGO_WIDTH_MM, HEADER_LOGO_HEIGHT_MM)
+        height = height_mm(cfg[:logo_height], 'logo-height')
+        data_uri(
+          logo,
+          height: height || HEADER_LOGO_HEIGHT_MM,
+          width: height ? nil : HEADER_LOGO_WIDTH_MM,
+        )
       end
 
       def footer_uri(cfg, logo)
-        return nil unless cfg[:footer_logo] && logo
+        return nil unless logo
 
+        height = height_mm(cfg[:footer_logo_height], 'footer-logo-height')
         data_uri(
-          logo, FOOTER_LOGO_WIDTH_MM, FOOTER_LOGO_HEIGHT_MM,
+          logo,
+          height: height || FOOTER_LOGO_HEIGHT_MM,
+          width: height ? nil : FOOTER_LOGO_WIDTH_MM,
           recolor: cfg[:footer_grey],
         )
+      end
+
+      # `footer_logo` is false to hide the placement, a path to give
+      # it a mark of its own, and true to derive it from the header
+      # logo. A named file that is missing warns and hides the
+      # placement rather than quietly falling back to the header
+      # mark, which is the very thing the setting was there to
+      # replace.
+      def footer_logo(cfg, logo)
+        case cfg[:footer_logo]
+        when false, nil then nil
+        when String then resolve_logo(cfg[:footer_logo])
+        else logo
+        end
+      end
+
+      # A height in millimetres, given as a number or as a string
+      # with or without the unit. Anything else is reported and
+      # ignored, so a typo costs the size rather than the document.
+      def height_mm(value, name)
+        return nil if value.nil? || value.to_s.strip.empty?
+
+        mm = Float(value.to_s.strip.sub(/mm\z/, ''), exception: false)
+        return mm if mm&.positive?
+
+        warn "md2pdf: #{name} is not a length in mm, ignoring: #{value}"
+        nil
       end
 
       # An explicit --logo wins; otherwise MD2PDF_LOGO acts as the
@@ -108,13 +155,14 @@ module Transpareo
         nil
       end
 
-      def data_uri(path, width_mm, height_mm, recolor: nil)
+      # Without a width the SVG keeps its own aspect ratio, which
+      # needs a viewBox: one is derived from the file's original
+      # dimensions when the file has none.
+      def data_uri(path, height:, width: nil, recolor: nil)
         return nil unless path && File.exist?(path)
 
         svg = File.read(path).sub(/<svg([^>]*)>/) do
-          attrs = Regexp.last_match(1)
-            .sub(/\swidth="[^"]+"/, %( width="#{width_mm}mm"))
-            .sub(/\sheight="[^"]+"/, %( height="#{height_mm}mm"))
+          attrs = sized_attrs(Regexp.last_match(1), width, height)
           attrs += %( fill="#{recolor}") if recolor
           "<svg#{attrs}>"
         end
@@ -122,6 +170,20 @@ module Transpareo
         # pack('m0') is strict base64 without the stdlib base64 gem,
         # which stopped being a default gem in Ruby 3.4.
         "data:image/svg+xml;base64,#{[svg].pack('m0')}"
+      end
+
+      def sized_attrs(attrs, width, height)
+        original = attrs.scan(SIZE_ATTR_RE).to_h
+        sized = attrs.gsub(SIZE_ATTR_RE, '')
+        sized += %( width="#{width}mm") if width
+        sized += %( height="#{height}mm")
+        return sized if width || sized.include?('viewBox=')
+
+        w = original['width'].to_f
+        h = original['height'].to_f
+        return sized unless w.positive? && h.positive?
+
+        sized + %( viewBox="0 0 #{w} #{h}")
       end
 
       def recolor_svg(svg, color)

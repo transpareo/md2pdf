@@ -56,6 +56,21 @@ class CLITest < Minitest::Test
     refute opts[:page_numbers]
   end
 
+  # `footer_logo` is one setting with three shapes: the negating
+  # flag turns it off, the value flag names a file, and neither
+  # leaves it deriving from --logo.
+  def test_footer_logo_takes_a_path_or_a_negation
+    opts, = CLI.parse(%w[--footer-logo=mark.svg --logo-height 11])
+
+    assert_equal 'mark.svg', opts[:footer_logo]
+    assert_equal '11', opts[:logo_height]
+
+    opts, = CLI.parse(%w[--no-footer-logo --footer-logo-height=4mm])
+
+    assert_same false, opts[:footer_logo]
+    assert_equal '4mm', opts[:footer_logo_height]
+  end
+
   def test_no_hyphens_turns_hyphenation_off
     opts, = CLI.parse(%w[--no-hyphens doc.md])
 

@@ -591,6 +591,9 @@ each file it writes.
 | Flag | Config key | Default | Description |
 |---|---|---|---|
 | `--logo=PATH` | `logo` | none | SVG logo. The footer version is derived from the same file in grey, so one asset covers both |
+| `--footer-logo=PATH` | `footer-logo` | derived from `logo` | A separate SVG for the footer, also set in grey |
+| `--logo-height=MM` | `logo-height` | a 42mm by 6.95mm box | Header logo height in mm; the width follows the SVG's aspect ratio |
+| `--footer-logo-height=MM` | `footer-logo-height` | an 18mm by 2.98mm box | Footer logo height in mm, likewise |
 | `--footer-title=TEXT` | `footer-title` | the document's H1 | Running text centred in the footer, between the logo and the page number. `""` removes it |
 | `--no-header-logo` | `header-logo: false` | shown | Hide the first-page logo |
 | `--no-footer-logo` | `footer-logo: false` | shown | Hide the per-page footer logo |
@@ -735,8 +738,8 @@ logo: assets/brand/logo.svg
 document's front matter resolves against the document, and one
 given as a flag resolves against your shell, which is what typing a
 path into a terminal implies. The rule covers every setting naming
-a file or directory: `logo`, `custom-css`, `output` and
-`output-dir`.
+a file or directory: `logo`, `footer-logo`, `custom-css`, `output`
+and `output-dir`.
 
 That means a repository can commit its branding next to its docs
 and every contributor produces identically branded PDFs from any
@@ -749,15 +752,34 @@ page is derived from the same file by rewriting each fill,
 gradient stop and inline `fill:` to grey, so there is no second
 file to keep in sync.
 
+**A brand with two marks names the second one.** `footer-logo`
+points the footer at its own SVG, which is set in grey the same
+way, so a square icon can head the first page while the wordmark
+runs along the bottom of every one:
+
+```yaml
+logo: assets/brand/icon.svg
+footer-logo: assets/brand/wordmark.svg
+logo-height: 11
+footer-logo-height: 3
+```
+
+Each placement fits a fixed box by default, 42mm by 6.95mm for the
+header and 18mm by 2.98mm for the footer, both roughly 6:1, so a
+square icon comes out small and centred. `logo-height` and
+`footer-logo-height` size a placement by its height in millimetres
+instead, with the width following the SVG's own aspect ratio. The
+first page keeps its 38mm top margin whatever the height, so a
+header mark much taller than about 15mm needs `--custom-css` to
+make room.
+
 What makes a good logo file here:
 
 - **SVG.** It is the only format the recolouring understands, and
   it stays sharp at any zoom. Raster formats work in document body
   images, not as the logo.
-- **A wide wordmark.** The header box is 42mm by 6.95mm and the
-  footer is 18mm by 2.98mm, both roughly 6:1. A square or tall mark
-  will be squashed, so crop the artwork or set your own sizes with
-  `--custom-css`.
+- **A wide wordmark, or a height.** Anything far from 6:1 is
+  small in the default box; give it a height instead.
 - **Colour defined as fills or gradient stops**, not embedded
   raster or CSS classes, or the grey footer derivation will not
   find anything to recolour.

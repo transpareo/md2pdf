@@ -216,6 +216,26 @@ class ConfigTest < Minitest::Test
     end
   end
 
+  # A footer logo path resolves like any other path; the boolean
+  # form of the same key has nothing to resolve and passes through.
+  def test_footer_logo_resolves_as_a_path_only_when_it_is_one
+    in_tree do |home|
+      project = mkdir(home, 'project')
+      write_config(project, "footer-logo: brand/mark.svg\n")
+
+      style = settings_for(project)[:style]
+
+      assert_equal File.join(project, 'brand', 'mark.svg'),
+                   style[:footer_logo]
+
+      write_config(project, "footer-logo: false\nlogo-height: 11\n")
+      style = settings_for(project)[:style]
+
+      assert_same false, style[:footer_logo]
+      assert_equal 11, style[:logo_height]
+    end
+  end
+
   # Order is what makes layering work, so it is asserted directly
   # rather than inferred from a merged result.
   def test_ancestors_come_back_outermost_first

@@ -83,6 +83,13 @@ and a fresh `## [Unreleased]` opens above it.
   The read waits for the program upstream to close the pipe, so
   without this a slow generator is indistinguishable from md2pdf
   hanging.
+- A footer mark of its own. `--footer-logo` or `footer-logo:` names
+  a second SVG for the footer, set in grey like the derived one, so
+  a brand with a square icon and a separate wordmark can use both.
+  `--logo-height` and `--footer-logo-height` size either placement
+  by height in millimetres, the width following the SVG's aspect
+  ratio, where the default fits a box of roughly 6:1 and leaves a
+  square icon small and centred.
 - A running footer title, centred between the logo and the page
   number. It carries the document's own H1 by default, is
   overridden with `--footer-title` or `footer-title:`, and is

@@ -21,6 +21,7 @@ module Transpareo
         page_size margins
         output output_dir
         logo header_logo footer_logo page_numbers footer_title
+        logo_height footer_logo_height
         link_color custom_css hyphens
       ].freeze
 
@@ -97,8 +98,11 @@ module Transpareo
       # Every setting that names a file or directory. Outputs are
       # included deliberately: a committed `output-dir: build` means
       # build inside this project, not wherever the shell happens to
-      # be standing.
-      PATH_KEYS = %i[logo custom_css output output_dir].freeze
+      # be standing. `footer_logo` is a path only when it is a
+      # string; `false` passes through untouched.
+      PATH_KEYS = %i[
+        logo footer_logo custom_css output output_dir
+      ].freeze
 
       def expand_paths(settings, dir)
         PATH_KEYS.each do |key|
