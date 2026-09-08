@@ -110,6 +110,11 @@ and a fresh `## [Unreleased]` opens above it.
 
 ### Fixed
 
+- Column alignment from a markdown table's `---:` and `:-:` markers
+  was lost: the stylesheet's `text-align: left` on every cell beat
+  the `align` attribute the markdown parser emits, so right-aligned
+  numbers rendered left-aligned. Cells with an `align` attribute now
+  keep their alignment.
 - TOC page numbers showed `?` for every heading containing a
   non-ASCII character. Chromium names each PDF destination after
   the URL fragment of the link that points at it, so an id like

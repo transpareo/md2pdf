@@ -78,6 +78,13 @@ class StyleTest < Minitest::Test
 
   # Hyphenation
 
+  def test_column_alignment_from_markdown_beats_the_default
+    css = with_env('MD2PDF_LOGO' => nil) { Style.build }
+
+    assert_includes css, 'td[align="right"] { text-align: right; }'
+    assert_includes css, 'td[align="center"] { text-align: center; }'
+  end
+
   def test_hyphenation_is_on_by_default
     css = with_env('MD2PDF_LOGO' => nil) { Style.build }
 

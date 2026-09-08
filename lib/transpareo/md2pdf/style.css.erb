@@ -266,6 +266,12 @@ th, td {
   text-align: left;
   vertical-align: top;
 }
+
+/* Markdown's `---:` and `:-:` column markers arrive as align
+   attributes on the cells, which the rule above would otherwise
+   override: a stylesheet beats a presentational attribute. */
+th[align="right"], td[align="right"] { text-align: right; }
+th[align="center"], td[align="center"] { text-align: center; }
 td {
   overflow-wrap: break-word;
 }
