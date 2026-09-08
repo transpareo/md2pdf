@@ -31,6 +31,35 @@ class MarkdownTest < Minitest::Test
     assert_equal 1, out.scan('</div>').size
   end
 
+  # A raw tag opens an HTML block that runs to the next blank line,
+  # so a heading straight under `::: intro` used to be swallowed
+  # into the tag and print as literal `## Titel`.
+  def test_heading_directly_under_the_opener_is_a_heading
+    html = Markdown.to_html(":::intro\n## Titel\n\nAbsatz.\n:::\n")
+
+    assert_includes html, '<h2>Titel</h2>'
+    refute_includes html, '## Titel'
+  end
+
+  def test_heading_directly_under_a_nested_opener_is_a_heading
+    html = Markdown.to_html(":::outer\n:::inner\n## Titel\n:::\n:::\n")
+
+    assert_includes html, '<h2>Titel</h2>'
+    assert_equal 2, html.scan('</div>').size
+  end
+
+  def test_text_directly_under_the_closer_is_a_paragraph
+    html = Markdown.to_html(":::a\n\ntext\n:::\nAfter\n")
+
+    assert_includes html, "</div>\n<p>After</p>"
+  end
+
+  def test_closer_terminates_a_trailing_list
+    html = Markdown.to_html(":::a\n\n- one\n- two\n:::\n")
+
+    assert_includes html, "</ul>\n</div>"
+  end
+
   # Joining an empty array yields a US-ASCII string, which the
   # parser rejects outright, so an empty document used to abort
   # with a type error raised from inside commonmarker.

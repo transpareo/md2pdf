@@ -110,6 +110,12 @@ and a fresh `## [Unreleased]` opens above it.
 
 ### Fixed
 
+- A heading on the line straight after `::: intro` printed as
+  literal `## Titel`. The opener becomes a raw `<div>`, and
+  CommonMark runs a raw HTML block up to the next blank line, so
+  the heading was swallowed into the tag. Both tags are now
+  followed by a blank line, so the first line of a fenced div and
+  the line after its closer parse as markdown.
 - Column alignment from a markdown table's `---:` and `:-:` markers
   was lost: the stylesheet's `text-align: left` on every cell beat
   the `align` attribute the markdown parser emits, so right-aligned

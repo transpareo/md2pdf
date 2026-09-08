@@ -145,6 +145,11 @@ module Transpareo
       # CommonMark passes through untouched while still parsing the
       # markdown between them. Fenced code blocks are skipped so a
       # literal `:::` in a code sample survives verbatim.
+      #
+      # Each tag is followed by a blank line. A raw tag opens an
+      # HTML block that runs to the next blank line, so without one
+      # the line after `::: intro` would be swallowed into the tag
+      # and a heading there would print as literal text.
       def expand_fenced_divs(text)
         depth = 0
         in_code = false
@@ -160,18 +165,18 @@ module Transpareo
 
           if (m = stripped.match(DIV_OPEN_RE))
             depth += 1
-            next %(<div class="#{m[1]}">\n)
+            next %(<div class="#{m[1]}">\n\n)
           end
 
           if depth.positive? && stripped.match?(DIV_CLOSE_RE)
             depth -= 1
-            next "</div>\n"
+            next "</div>\n\n"
           end
 
           line
         end
 
-        lines.join + ("</div>\n" * depth)
+        lines.join + ("</div>\n\n" * depth)
       end
     end
   end
