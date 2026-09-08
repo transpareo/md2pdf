@@ -6,11 +6,9 @@ this project adheres to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
-The first release as a gem. Nothing has been published yet, so
-everything below is still 1.0.0 rather than a series of bumps: a
-version number describes something people can install, and these
-never were. On release this heading becomes `## [1.0.0] - <date>`
-and a fresh `## [Unreleased]` opens above it.
+## [1.0.0] - 2026-09-07
+
+The first release as a gem.
 
 ### Added
 
