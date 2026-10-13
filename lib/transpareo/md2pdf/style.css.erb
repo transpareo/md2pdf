@@ -114,7 +114,15 @@ h2 { font-size: 1.55em; margin: 2.4em 0 0.6em; }
 h3 { font-size: 1.3em; margin: 1.9em 0 0.4em; }
 p  { margin: 0.55em 0; }
 ul, ol { margin: 0.4em 0 0.6em 0; padding-left: 1.6em; }
-li { margin: 0.15em 0; }
+li { margin: 0; }
+ol > li { padding-left: 0.3em; }
+li + li { margin-top: 0.5em; }
+
+/* A loose list wraps each item in a paragraph. Only the space
+   between paragraphs of one item stays, so a loose list spaces its
+   items the same as a tight one. */
+li > p:first-child { margin-top: 0; }
+li > p:last-child { margin-bottom: 0; }
 <%- if hyphens -%>
 
 /* Hyphenation. Chromium needs this property and a lang attribute

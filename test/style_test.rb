@@ -85,6 +85,33 @@ class StyleTest < Minitest::Test
     assert_includes css, 'td[align="center"] { text-align: center; }'
   end
 
+  # Spacing sits on every item after the first, so it opens gaps
+  # between items without adding to the list's own margins.
+  def test_list_items_are_spaced_only_between_each_other
+    css = with_env('MD2PDF_LOGO' => nil) { Style.build }
+
+    assert_includes css, 'li { margin: 0; }'
+    assert_includes css, 'li + li { margin-top: 0.5em; }'
+  end
+
+  # Bullets already leave room after the marker. Numbers sit flush
+  # against the text, so numbered items get extra room.
+  def test_numbered_items_get_a_gap_after_the_marker
+    css = with_env('MD2PDF_LOGO' => nil) { Style.build }
+
+    assert_includes css, 'ol > li { padding-left: 0.3em; }'
+    refute_match(/^li \{[^}]*padding/, css)
+  end
+
+  # A loose list wraps each item in a <p>. Its outer margins would
+  # otherwise widen the gaps beyond those of a tight list.
+  def test_loose_list_items_space_like_tight_ones
+    css = with_env('MD2PDF_LOGO' => nil) { Style.build }
+
+    assert_includes css, 'li > p:first-child { margin-top: 0; }'
+    assert_includes css, 'li > p:last-child { margin-bottom: 0; }'
+  end
+
   def test_hyphenation_is_on_by_default
     css = with_env('MD2PDF_LOGO' => nil) { Style.build }
 

@@ -6,6 +6,15 @@ this project adheres to [Semantic Versioning](https://semver.org).
 
 ## [Unreleased]
 
+### Changed
+
+- List items are set 0.5em apart, with no extra space above the
+  first item or below the last.
+- A loose list, one with blank lines between its items, spaces them
+  the same as a tight list. Each item's paragraph used to add its
+  own margins on top.
+- A numbered item leaves 0.3em between its number and its text.
+
 ## [1.0.0] - 2026-09-07
 
 The first release as a gem.
