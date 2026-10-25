@@ -544,6 +544,44 @@ class FiltersTest < Minitest::Test
     refute_includes render_html("plain text\n"), 'footnotes-section'
   end
 
+  # Style spaces
+
+  def test_moves_the_space_after_bold_into_the_bold_run
+    html = render_html("**Sitz:** Tech Cluster Zug\n")
+
+    assert_includes html, '<strong>Sitz: </strong>Tech Cluster Zug'
+  end
+
+  def test_moves_the_space_after_italic_into_the_italic_run
+    html = render_html("*Alle Annahmen.* Der Rest\n")
+
+    assert_includes html, '<em>Alle Annahmen. </em>Der Rest'
+  end
+
+  def test_moves_the_space_into_the_innermost_run
+    html = render_html("***beides*** danach\n")
+
+    assert_includes html, '<em><strong>beides </strong></em>danach'
+  end
+
+  def test_keeps_a_line_break_as_the_moved_whitespace
+    html = render_html("**Sitz:**\nTech\n")
+
+    assert_includes html, "<strong>Sitz:\n</strong>Tech"
+  end
+
+  def test_leaves_text_that_follows_without_a_space_alone
+    html = render_html("**Sitz**, Zug\n")
+
+    assert_includes html, '<strong>Sitz</strong>, Zug'
+  end
+
+  def test_leaves_the_space_after_inline_code_alone
+    html = render_html("`md2pdf` renders\n")
+
+    assert_includes html, '</code> renders'
+  end
+
   private
 
   def with_image

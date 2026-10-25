@@ -283,6 +283,7 @@ Everything in GitHub Flavored Markdown, plus a few things beyond it.
 | Front matter | An `md2pdf:` YAML block, stripped before rendering |
 | Ordinals | A wrapped line starting `1.` stays prose unless it really opens a list |
 | Document title | The PDF's Title is the first H1, so viewers and search engines show the document's name; a document without one is titled by its file name |
+| Word spaces | A space after bold or italic text is drawn in that face, so text extractors that read run by run keep it |
 
 ### Images
 

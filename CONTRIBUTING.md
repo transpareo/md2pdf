@@ -48,8 +48,8 @@ and only when the first pass produced destinations to resolve.
   to exist.
 - `Demote` runs before `Toc`, so a `--flat` document exposes no
   headings for the table of contents to collect.
-- `CodeWbr` runs last. It rewrites inline code into markup that the
-  text-reading filters can no longer parse.
+- `CodeWbr` runs after every filter that reads text. It rewrites
+  inline code into markup those filters can no longer parse.
 
 There are tests asserting each of these. If you reorder the chain
 and they fail, the test is right.

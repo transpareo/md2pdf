@@ -10,6 +10,7 @@ require_relative 'filters/toc'
 require_relative 'filters/code_highlight'
 require_relative 'filters/code_wbr'
 require_relative 'filters/tables'
+require_relative 'filters/style_spaces'
 
 module Transpareo
   module Md2pdf
@@ -28,7 +29,7 @@ module Transpareo
         chain << EditableFields if editable
         chain << Demote if flat
         chain << Toc if toc
-        chain + [CodeHighlight, CodeWbr, Tables]
+        chain + [CodeHighlight, CodeWbr, Tables, StyleSpaces]
       end
     end
   end

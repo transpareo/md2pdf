@@ -34,6 +34,19 @@ class IntegrationTest < Minitest::Test
     end
   end
 
+  # An extractor that reads run by run drops a space opening a run,
+  # so the space after a bold label is drawn in the bold face.
+  def test_draws_the_space_after_bold_in_the_bold_face
+    in_document("# Doc\n\n**Sitz:** Tech Cluster Zug\n") do |md, dir|
+      capture_io { Transpareo::Md2pdf.convert(md) }
+      glyphs = glyph_faces(File.join(dir, 'doc.pdf'))
+      colon = glyphs.index { |char, _| char == ':' }
+
+      assert_equal ' ', glyphs[colon + 1][0]
+      assert_equal glyphs[colon][1], glyphs[colon + 1][1]
+    end
+  end
+
   def test_resolves_real_page_numbers_into_the_toc
     in_document(long_source) do |md, dir|
       capture_io { Transpareo::Md2pdf.convert(md) }
@@ -447,5 +460,46 @@ class IntegrationTest < Minitest::Test
     return [] unless form
 
     Array(objects.deref(form[:Fields])).map { |f| objects.deref(f) }
+  end
+
+  # Every glyph of page 1 as [text, base font], decoded through the
+  # font's ToUnicode map and in content-stream order.
+  def glyph_faces(pdf)
+    page = PDF::Reader.new(pdf).page(1)
+    receiver = GlyphFaces.new(page)
+    page.walk(receiver)
+    receiver.glyphs
+  end
+
+  # Records each shown glyph with the font it is drawn in; every
+  # other operator goes to the page state, which tracks the font.
+  class GlyphFaces
+    attr_reader :glyphs
+
+    def initialize(page)
+      @state = PDF::Reader::PageState.new(page)
+      @glyphs = []
+    end
+
+    def show_text(string)
+      font = @state.current_font
+      font.unpack(string).each do |code|
+        @glyphs << [font.to_utf8(code), font.basefont]
+      end
+    end
+
+    def show_text_with_positioning(items)
+      items.each { |item| show_text(item) if item.is_a?(String) }
+    end
+
+    def respond_to_missing?(name, include_private = false)
+      @state.respond_to?(name) || super
+    end
+
+    def method_missing(name, ...)
+      return super unless @state.respond_to?(name)
+
+      @state.public_send(name, ...)
+    end
   end
 end

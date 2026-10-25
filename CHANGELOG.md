@@ -18,6 +18,11 @@ this project adheres to [Semantic Versioning](https://semver.org).
   text, and the file name only for a document without one. It used
   to be the file name, which is what viewers and search engines
   showed as the document's name.
+- A space right after bold or italic text is drawn in that face
+  instead of opening the next run. Extractors that read a PDF run
+  by run and trim each run's leading whitespace dropped it, and
+  read `**Sitz:** Tech` as `Sitz:Tech`. The space is a tenth of a
+  point wider in bold at body size.
 
 ## [1.0.0] - 2026-09-07
 
