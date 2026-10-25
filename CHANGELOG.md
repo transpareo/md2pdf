@@ -14,6 +14,10 @@ this project adheres to [Semantic Versioning](https://semver.org).
   the same as a tight list. Each item's paragraph used to add its
   own margins on top.
 - A numbered item leaves 0.3em between its number and its text.
+- The PDF's Title is the document's first H1, reduced to plain
+  text, and the file name only for a document without one. It used
+  to be the file name, which is what viewers and search engines
+  showed as the document's name.
 
 ## [1.0.0] - 2026-09-07
 

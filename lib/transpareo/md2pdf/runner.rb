@@ -237,7 +237,9 @@ module Transpareo
       end
 
       # Builds, filters and writes one HTML rendition; returns the
-      # field manifest collected by the filters.
+      # field manifest collected by the filters. Chromium copies the
+      # HTML title into the PDF's Title, so it is the document's
+      # heading, and the file's name only when there is none.
       def write_html(html_path, text, options, pages)
         doc = Document.from_markdown(
           text,
@@ -256,7 +258,7 @@ module Transpareo
         doc.apply(chain)
         html = Renderer.document(
           body: doc.to_html,
-          title: options[:basename],
+          title: Document.title_of(text) || options[:basename],
           css: options[:css],
           lang: options[:locale],
         )

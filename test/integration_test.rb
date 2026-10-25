@@ -25,6 +25,15 @@ class IntegrationTest < Minitest::Test
     end
   end
 
+  def test_titles_the_pdf_after_its_heading
+    in_document(short_source) do |md, dir|
+      capture_io { Transpareo::Md2pdf.convert(md) }
+      info = PDF::Reader.new(File.join(dir, 'doc.pdf')).info
+
+      assert_equal 'Short', info[:Title]
+    end
+  end
+
   def test_resolves_real_page_numbers_into_the_toc
     in_document(long_source) do |md, dir|
       capture_io { Transpareo::Md2pdf.convert(md) }

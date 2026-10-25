@@ -258,8 +258,29 @@ class RunnerTest < Minitest::Test
 
       assert_includes html, '<!DOCTYPE html>'
       assert_includes html, '<html lang="de">'
-      assert_includes html, '<title>doc</title>'
       assert_includes html, 'body{}'
+    end
+  end
+
+  # Chromium writes the HTML title into the PDF's Title, which
+  # viewers and search engines show as the document's name.
+  def test_write_html_titles_the_document_after_its_heading
+    Dir.mktmpdir do |dir|
+      path = File.join(dir, 'doc.html')
+      text = "# Kurzfassung: Der *digitale* Pass\n\ntext\n"
+      Runner.write_html(path, text, write_options, {})
+
+      assert_includes File.read(path),
+                      '<title>Kurzfassung: Der digitale Pass</title>'
+    end
+  end
+
+  def test_write_html_titles_a_document_without_heading_by_its_name
+    Dir.mktmpdir do |dir|
+      path = File.join(dir, 'doc.html')
+      Runner.write_html(path, "just a paragraph\n", write_options, {})
+
+      assert_includes File.read(path), '<title>doc</title>'
     end
   end
 
